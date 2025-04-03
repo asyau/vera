@@ -77,8 +77,8 @@ async def get_completion(prompt: str, messages: Optional[List[dict]] = None, mod
             task_info = await extract_task_info(prompt)
             
             # Create the task
-            async with httpx.AsyncClient() as client:
-                response = await client.post(
+            async with httpx.AsyncClient() as http_client:
+                response = await http_client.post(
                     "http://localhost:8000/api/tasks",
                     json=task_info
                 )
