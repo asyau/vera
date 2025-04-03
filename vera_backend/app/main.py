@@ -7,31 +7,32 @@ import os
 # Load environment variables from .env file
 load_dotenv()
 
-from app.routes import conversation, openai_service
+from app.routes import conversation, openai_service, task
 
 app = FastAPI(
-    title="Vira API",
-    description="Backend API for Vira, the AI-powered assistant platform for teams",
-    version="0.1.0",
+    title="Vera API",
+    description="API for Vera AI Assistant",
+    version="1.0.0"
 )
 
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173","https://localhost:8080","http://localhost:8080"],  # Frontend dev server
+    allow_origins=["http://localhost:5173", "http://localhost:8080", "https://localhost:8080"],  # Vite's default port
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"]
 )
 
-# Include API routes
+# Include routers
 app.include_router(conversation.router, prefix="/api", tags=["conversation"])
 app.include_router(openai_service.router, prefix="/api", tags=["openai"])
+app.include_router(task.router, prefix="/api", tags=["tasks"])
 
 @app.get("/")
 async def root():
-    return {"message": "Welcome to Vira API"}
+    return {"message": "Welcome to Vera API"}
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True) 

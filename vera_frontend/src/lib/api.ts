@@ -8,14 +8,15 @@ export const api = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      credentials: 'include',
+      mode: 'cors',
       body: JSON.stringify({
         content: prompt,
         type: 'user'
       }),
     });
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
     }
     return response.json();
   },
@@ -27,7 +28,7 @@ export const api = {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
       },
-      credentials: 'include',
+      mode: 'cors',
       body: JSON.stringify({
         conversation_id: Date.now().toString(),
         messages: messages,
@@ -39,8 +40,60 @@ export const api = {
       }),
     });
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
     }
     return response.json();
-  }
+  },
+
+  // Task API functions
+  async getTasks() {
+    const response = await fetch(`${API_BASE_URL}/tasks`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to fetch tasks');
+    }
+    return response.json();
+  },
+
+  async createTask(task: Omit<Task, 'id' | 'timeline'>) {
+    const response = await fetch(`${API_BASE_URL}/tasks`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+      body: JSON.stringify(task),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to create task');
+    }
+    return response.json();
+  },
+
+  async updateTask(id: string, updates: Partial<Task>) {
+    const response = await fetch(`${API_BASE_URL}/tasks/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+      body: JSON.stringify(updates),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to update task');
+    }
+    return response.json();
+  },
 }; 

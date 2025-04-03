@@ -1,7 +1,11 @@
 import os
-from typing import List, Optional
+from typing import List, Optional, Dict
 from openai import OpenAI
 import asyncio
+import json
+from datetime import datetime
+import uuid
+import httpx
 
 # Initialize the OpenAI client
 api_key = os.getenv("OPENAI_API_KEY")
@@ -9,9 +13,51 @@ if not api_key:
     raise ValueError("OPENAI_API_KEY environment variable is not set")
 
 # Initialize client with only the api_key parameter
-client = OpenAI()
+client = OpenAI(api_key=api_key)
 
-async def get_completion(prompt: str, messages: Optional[List[dict]] = None, model: str = "gpt-4o", max_tokens: int = 1000) -> str:
+async def extract_task_info(prompt: str) -> Dict:
+    """Extract task information from a prompt using OpenAI."""
+    system_prompt = """Extract task information from the following message. 
+    Return a JSON object with the following fields:
+    - name: A short title for the task
+    - assignedTo: The person to assign the task to
+    - dueDate: The due date in YYYY-MM-DD format (if mentioned)
+    - status: One of 'pending', 'in-progress', 'completed', 'cancelled'
+    - description: A detailed description of the task
+    - originalPrompt: The original user prompt
+    
+    Return ONLY the JSON object, nothing else.
+    """
+    
+    try:
+        response = await asyncio.to_thread(
+            client.chat.completions.create,
+            model="gpt-4",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.3  # Lower temperature for more consistent JSON output
+        )
+        
+        # Extract the JSON from the response
+        content = response.choices[0].message.content.strip()
+        # Remove any markdown code block syntax if present
+        content = content.replace('```json', '').replace('```', '').strip()
+        task_info = json.loads(content)
+        
+        # Add timeline information
+        task_info['timeline'] = {
+            'createdAt': datetime.now().isoformat(),
+            'sentAt': datetime.now().isoformat()
+        }
+        
+        return task_info
+    except Exception as e:
+        print(f"Error extracting task info: {str(e)}")
+        raise
+
+async def get_completion(prompt: str, messages: Optional[List[dict]] = None, model: str = "gpt-4", max_tokens: int = 1000) -> str:
     """
     Get a completion from OpenAI.
     
@@ -25,6 +71,23 @@ async def get_completion(prompt: str, messages: Optional[List[dict]] = None, mod
         The generated text.
     """
     try:
+        # Check if the prompt contains task assignment keywords
+        task_keywords = ["assign", "task", "create task", "new task", "to do"]
+        if any(keyword in prompt.lower() for keyword in task_keywords):
+            task_info = await extract_task_info(prompt)
+            
+            # Create the task
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    "http://localhost:8000/api/tasks",
+                    json=task_info
+                )
+                if response.status_code == 200:
+                    task = response.json()
+                    return f"I've created a task: '{task['name']}' assigned to {task['assignedTo']}. Due date: {task.get('dueDate', 'Not specified')}, Status: {task['status']}"
+                else:
+                    return "I tried to create the task but encountered an error. Please try again."
+        
         # If messages are provided, use chat completion
         if messages:
             response = await asyncio.to_thread(

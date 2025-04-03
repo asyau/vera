@@ -34,7 +34,7 @@ interface TaskTableProps {
 }
 
 const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
-  const { tasks } = useTasks();
+  const { tasks, loading, error } = useTasks();
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [viewType, setViewType] = useState<'table' | 'kanban'>('table');
@@ -103,6 +103,26 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
     cancelled: filteredTasks.filter(task => task.status === 'cancelled')
   };
   
+  if (loading) {
+    return (
+      <div className="flex flex-col h-full rounded-lg bg-white shadow-sm border border-gray-100 p-4">
+        <div className="flex items-center justify-center h-full">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-vira-primary"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex flex-col h-full rounded-lg bg-white shadow-sm border border-gray-100 p-4">
+        <div className="flex items-center justify-center h-full text-red-500">
+          <p>Error: {error}</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-full rounded-lg bg-white shadow-sm border border-gray-100">
       <div className="p-4 border-b border-gray-100 flex justify-between items-center">
