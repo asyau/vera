@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import ChatPanel from '@/components/chat/ChatPanel';
@@ -9,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Clipboard, MessageSquare, KanbanSquare, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SessionProvider, useSession } from '@/contexts/SessionContext';
+import { Chat } from '@/components/Chat';
 
 // Type for view modes
 type ViewMode = 'chat' | 'chat-tasks' | 'tasks' | 'trichat';

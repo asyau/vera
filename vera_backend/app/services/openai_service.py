@@ -4,8 +4,12 @@ from openai import OpenAI
 import asyncio
 
 # Initialize the OpenAI client
-# In production, set OPENAI_API_KEY as an environment variable
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY", "your-api-key"))
+api_key = os.getenv("OPENAI_API_KEY")
+if not api_key:
+    raise ValueError("OPENAI_API_KEY environment variable is not set")
+
+# Initialize client with only the api_key parameter
+client = OpenAI()
 
 async def get_completion(prompt: str, messages: Optional[List[dict]] = None, model: str = "gpt-4o", max_tokens: int = 1000) -> str:
     """
