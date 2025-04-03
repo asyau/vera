@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException
 from typing import List
 from datetime import datetime
 import uuid
+import json
 
 from app.models.task import Task, Timeline
 
