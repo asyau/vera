@@ -1,9 +1,9 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { useSession } from '@/contexts/SessionContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { api } from '@/lib/api';
 
 // Export Message interface so it can be used in other components
 export interface Message {
@@ -24,61 +24,44 @@ const ChatPanel: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentSession?.messages]);
   
-  // Mock AI response
-  const simulateAiResponse = (userMessage: string) => {
-    setIsAiTyping(true);
+  const handleSendMessage = async (content: string) => {
+    if (!content.trim()) return;
     
-    // Sample responses based on user input
-    const responses = [
-      "I'll handle that for you right away.",
-      "I've made a note of that request. Would you like me to schedule it?",
-      "I've added that to your task list. When would you like it completed by?",
-      "Let me look into that for you. I'll get back to you shortly with more information.",
-      "I can help with that. Would you like me to assign this to someone on your team?"
-    ];
-    
-    // Generate a simple response based on message content
-    let responseText = '';
-    if (userMessage.toLowerCase().includes('meeting')) {
-      responseText = "I'll schedule that meeting for you. What time works best?";
-    } else if (userMessage.toLowerCase().includes('email')) {
-      responseText = "I can draft that email. Who would you like it sent to?";
-    } else if (userMessage.toLowerCase().includes('task')) {
-      responseText = "I've created that task. Would you like me to assign it to someone specific?";
-    } else {
-      // Random response if no keywords match
-      responseText = responses[Math.floor(Math.random() * responses.length)];
-    }
-    
-    // Simulate typing delay
-    setTimeout(() => {
-      setIsAiTyping(false);
-      const aiMessage: Message = {
-        id: Date.now().toString(),
-        content: responseText,
-        type: 'ai',
-        name: 'Vira',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      };
-      addMessageToCurrentSession(aiMessage);
-    }, 1500);
-  };
-  
-  const handleSendMessage = (content: string) => {
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
       content,
       type: 'user',
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toISOString(),
     };
-    
     addMessageToCurrentSession(userMessage);
     
-    // Simulate AI response
-    simulateAiResponse(content);
+    // Get AI response
+    setIsAiTyping(true);
+    try {
+      const result = await api.getCompletion(content);
+      const aiMessage: Message = {
+        id: result.id,
+        content: result.content,
+        type: result.type,
+        name: result.name,
+        timestamp: result.timestamp,
+      };
+      addMessageToCurrentSession(aiMessage);
+    } catch (error) {
+      console.error('Error getting AI response:', error);
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: 'Sorry, I encountered an error. Please try again.',
+        type: 'ai',
+        timestamp: new Date().toISOString(),
+      };
+      addMessageToCurrentSession(errorMessage);
+    } finally {
+      setIsAiTyping(false);
+    }
   };
-  
+
   if (!currentSession) {
     return (
       <div className="flex flex-col h-full rounded-lg bg-white shadow-sm border border-gray-100 items-center justify-center">
@@ -108,12 +91,11 @@ const ChatPanel: React.FC = () => {
           ))}
           
           {isAiTyping && (
-            <ChatMessage
-              content=""
-              type="ai"
-              name="Vira"
-              isTyping={true}
-            />
+            <div className="flex items-center space-x-2 p-4">
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-100" />
+              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200" />
+            </div>
           )}
           
           <div ref={messagesEndRef} />
