@@ -15,17 +15,17 @@ if not api_key:
 # Initialize client with only the api_key parameter
 client = OpenAI(api_key=api_key)
 
-async def extract_task_info(prompt: str) -> Dict:
+async def extract_task_info(prompt: str) -> Dict:    
+    current_time = datetime.utcnow()
     """Extract task information from a prompt using OpenAI."""
-    system_prompt = """Extract task information from the following message. 
+    system_prompt = f"""Extract task information from the following message. 
     Return a JSON object with the following fields:
     - name: A short title for the task
     - assignedTo: The person to assign the task to
-    - dueDate: The due date in YYYY-MM-DD format (if mentioned)
+    - dueDate: Today is {current_time.strftime('%Y-%m-%d %H:%M:%S')}. Use this information for due date calculating due date. The due date in YYYY-MM-DD format (if mentioned)
     - status: One of 'pending', 'in-progress', 'completed', 'cancelled'
     - description: A detailed description of the task
     - originalPrompt: The original user prompt
-    
     Return ONLY the JSON object, nothing else.
     """
     

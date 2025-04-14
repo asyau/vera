@@ -1,67 +1,93 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends, Request
+from sqlalchemy.orm import Session
 from typing import List
 from datetime import datetime
 import uuid
-import json
+import logging
 
-from app.models.task import Task, Timeline
+from app.models.sql_models import Task, Timeline
+from app.models.pydantic_models import TaskCreate, TaskResponse
+from app.database import get_db
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
-# In-memory task storage (replace with database in production)
-tasks: List[Task] = []
-
-@router.get("/tasks", response_model=List[Task])
-async def get_tasks():
+@router.get("/tasks", response_model=List[TaskResponse])
+async def get_tasks(db: Session = Depends(get_db)):
     """Get all tasks."""
-    return tasks
+    return db.query(Task).all()
 
-@router.post("/tasks", response_model=Task)
-async def create_task(task_info: dict):
+@router.post("/tasks", response_model=TaskResponse)
+async def create_task(request: Request, task_info: TaskCreate, db: Session = Depends(get_db)):
     """Create a new task."""
+    
+    print(f"Received task creation request: {task_info.dict()}")
     try:
+        # Log the incoming request data
+        logger.info(f"Received task creation request: {task_info.dict()}")
+        
+        task_id = str(uuid.uuid4())
+        current_time = datetime.utcnow()
+        # Add current day information to the original prompt
+        
         # Create timeline
         timeline = Timeline(
-            createdAt=datetime.now().isoformat(),
-            sentAt=datetime.now().isoformat()
+            id=str(uuid.uuid4()),
+            createdAt=current_time,
+            sentAt=current_time,
+            task_id=task_id
         )
         
-        # Create task with default values for optional fields
+        # Create task
         task = Task(
-            id=str(uuid.uuid4()),
-            name=task_info.get("name", ""),
-            assignedTo=task_info.get("assignedTo", ""),
-            dueDate=task_info.get("dueDate", datetime.now().isoformat().split("T")[0]),
-            status=task_info.get("status", "pending"),
-            description=task_info.get("description", ""),
-            originalPrompt=task_info.get("originalPrompt", ""),
+            id=task_id,
+            name=task_info.name,
+            assignedTo=task_info.assignedTo,
+            dueDate=task_info.dueDate,
+            status=task_info.status,
+            description=task_info.description,
+            originalPrompt=task_info.originalPrompt,  # Use the original prompt
             timeline=timeline
         )
         
-        tasks.append(task)
+        db.add(task)
+        db.commit()
+        db.refresh(task)
         return task
     except Exception as e:
+        db.rollback()
+        logger.error(f"Error creating task: {str(e)}")
         raise HTTPException(status_code=400, detail=str(e))
 
-@router.get("/tasks/{task_id}", response_model=Task)
-async def get_task(task_id: str):
+@router.get("/tasks/{task_id}", response_model=TaskResponse)
+async def get_task(task_id: str, db: Session = Depends(get_db)):
     """Get a specific task by ID."""
-    for task in tasks:
-        if task.id == task_id:
-            return task
-    raise HTTPException(status_code=404, detail="Task not found")
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return task
 
-@router.put("/tasks/{task_id}", response_model=Task)
-async def update_task(task_id: str, task_update: dict):
+@router.put("/tasks/{task_id}", response_model=TaskResponse)
+async def update_task(task_id: str, task_update: TaskCreate, db: Session = Depends(get_db)):
     """Update a task."""
-    for i, task in enumerate(tasks):
-        if task.id == task_id:
-            # Update task fields
-            for key, value in task_update.items():
-                if key == "status" and value == "completed":
-                    # Update timeline when task is completed
-                    task.timeline.completedAt = datetime.now().isoformat()
+    task = db.query(Task).filter(Task.id == task_id).first()
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+    
+    try:
+        for key, value in task_update.dict().items():
+            if key == "status" and value == "completed":
+                task.timeline.completedAt = datetime.utcnow()
+            else:
                 setattr(task, key, value)
-            tasks[i] = task
-            return task
-    raise HTTPException(status_code=404, detail="Task not found") 
+        
+        db.commit()
+        db.refresh(task)
+        return task
+    except Exception as e:
+        db.rollback()
+        logger.error(f"Error updating task: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e)) 
