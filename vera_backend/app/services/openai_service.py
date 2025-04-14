@@ -154,4 +154,27 @@ async def get_summary(messages: List[str], max_tokens: int = 200) -> str:
         return response.choices[0].message.content.strip()
     except Exception as e:
         print(f"OpenAI API error: {str(e)}")
+        raise
+
+async def transcribe_audio(audio_file_path: str) -> str:
+    """
+    Transcribe audio using OpenAI's Whisper API.
+    
+    Args:
+        audio_file_path: Path to the audio file to transcribe.
+        
+    Returns:
+        The transcribed text.
+    """
+    try:
+        with open(audio_file_path, "rb") as audio_file:
+            response = await asyncio.to_thread(
+                client.audio.transcriptions.create,
+                model="whisper-1",
+                file=audio_file,
+                response_format="text"
+            )
+        return response
+    except Exception as e:
+        print(f"Whisper API error: {str(e)}")
         raise 

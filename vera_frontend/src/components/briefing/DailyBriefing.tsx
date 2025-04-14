@@ -1,6 +1,5 @@
-
-import React, { useState } from 'react';
-import { CheckCircle, Calendar, Clock, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { CheckCircle, Calendar, Clock, AlertCircle, Volume2, Loader2 } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -23,6 +22,10 @@ interface BriefingTask {
 
 const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [aiExplanation, setAiExplanation] = useState('');
+  const [speechSynthesis, setSpeechSynthesis] = useState<SpeechSynthesis | null>(null);
   
   const [briefingData] = useState({
     date: today,
@@ -89,6 +92,69 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
   
+  useEffect(() => {
+    setSpeechSynthesis(window.speechSynthesis);
+  }, []);
+
+  const getAiExplanation = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/ai/explain-briefing', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          completed_tasks: briefingData.completedTasks,
+          delayed_tasks: briefingData.delayedTasks,
+          upcoming_tasks: briefingData.upcomingTasks,
+          tomorrow_tasks: briefingData.tomorrowTasks,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to get AI explanation');
+      }
+
+      const data = await response.json();
+      setAiExplanation(data.explanation);
+      return data.explanation;
+    } catch (error) {
+      console.error('Error getting AI explanation:', error);
+      alert('Error getting AI explanation. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const speakBriefing = async () => {
+    if (isSpeaking) {
+      speechSynthesis?.cancel();
+      setIsSpeaking(false);
+      return;
+    }
+
+    try {
+      setIsSpeaking(true);
+      
+      // Get AI explanation if we don't have one
+      let textToSpeak = aiExplanation;
+      if (!textToSpeak) {
+        textToSpeak = await getAiExplanation();
+      }
+
+      if (textToSpeak && speechSynthesis) {
+        const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        utterance.onend = () => setIsSpeaking(false);
+        utterance.onerror = () => setIsSpeaking(false);
+        speechSynthesis.speak(utterance);
+      }
+    } catch (error) {
+      console.error('Error speaking briefing:', error);
+      setIsSpeaking(false);
+    }
+  };
+
   const TaskItem: React.FC<{ task: BriefingTask }> = ({ task }) => {
     const getStatusIcon = () => {
       switch (task.status) {
@@ -123,11 +189,26 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
   
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-hidden flex flex-col">
+      <DialogContent className="sm:max-w-md h-[90vh] flex flex-col">
         <DialogHeader className="flex-shrink-0">
-          <div className="flex items-center space-x-2">
-            <Calendar className="h-5 w-5 text-vira-primary" />
-            <DialogTitle>Daily Briefing</DialogTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <Calendar className="h-5 w-5 text-vira-primary" />
+              <DialogTitle>Daily Briefing</DialogTitle>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={speakBriefing}
+              disabled={isLoading}
+              className={isSpeaking ? 'text-vira-primary' : ''}
+            >
+              {isLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Volume2 className={`h-5 w-5 ${isSpeaking ? 'animate-pulse' : ''}`} />
+              )}
+            </Button>
           </div>
           <DialogDescription>
             Your summary for {briefingData.date}
@@ -199,15 +280,50 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
             
             <Separator />
             
-            <div className="bg-vira-light p-3 rounded-md border border-vira-primary/20">
-              <h3 className="text-sm font-semibold text-vira-primary mb-1">
-                AI Summary
-              </h3>
-              <p className="text-sm text-gray-700">
-                You've completed 2 tasks today. There's 1 task that's currently delayed, 
-                and 2 tasks due tomorrow. Your focus today should be on finalizing the marketing 
-                proposal review which is currently delayed.
-              </p>
+            <div className="bg-vira-light p-4 rounded-md border border-vira-primary/20">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-semibold text-vira-primary">
+                  AI Summary
+                </h3>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={speakBriefing}
+                  disabled={isLoading}
+                  className={isSpeaking ? 'text-vira-primary' : ''}
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Volume2 className={`h-4 w-4 ${isSpeaking ? 'animate-pulse' : ''}`} />
+                  )}
+                </Button>
+              </div>
+              <div className="prose prose-sm max-w-none">
+                {aiExplanation ? (
+                  <p className="text-sm text-gray-700 whitespace-pre-line">
+                    {aiExplanation}
+                  </p>
+                ) : (
+                  <div className="flex items-center justify-center py-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={getAiExplanation}
+                      disabled={isLoading}
+                    >
+                      {isLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating Summary...
+                        </>
+                      ) : (
+                        'Generate Summary'
+                      )}
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </ScrollArea>
