@@ -4,6 +4,16 @@ import uvicorn
 from dotenv import load_dotenv
 import os
 
+import sentry_sdk
+
+sentry_sdk.init(
+    dsn="https://d436c015096491c747000cb1fd120cf3@o4509151357829120.ingest.de.sentry.io/4509151366676560",
+    # Add data like request headers and IP for users,
+    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
+    send_default_pii=True,
+)
+
+
 # Load environment variables from .env file
 load_dotenv()
 
@@ -33,6 +43,8 @@ app.include_router(task.router, prefix="/api", tags=["tasks"])
 @app.get("/")
 async def root():
     return {"message": "Welcome to Vera API"}
+
+
 
 if __name__ == "__main__":
     uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True) 
