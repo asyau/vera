@@ -109,6 +109,13 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
           delayed_tasks: briefingData.delayedTasks,
           upcoming_tasks: briefingData.upcomingTasks,
           tomorrow_tasks: briefingData.tomorrowTasks,
+          context: {
+            date: briefingData.date,
+            total_completed: briefingData.completedTasks.length,
+            total_delayed: briefingData.delayedTasks.length,
+            total_upcoming: briefingData.upcomingTasks.length,
+            total_tomorrow: briefingData.tomorrowTasks.length
+          }
         }),
       });
 
@@ -121,7 +128,11 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
       return data.explanation;
     } catch (error) {
       console.error('Error getting AI explanation:', error);
-      alert('Error getting AI explanation. Please try again.');
+      const fallbackExplanation = `Today, ${briefingData.completedTasks.length} tasks have been completed, including ${briefingData.completedTasks.map(t => t.name).join(', ')}. 
+      There ${briefingData.delayedTasks.length === 1 ? 'is' : 'are'} ${briefingData.delayedTasks.length} delayed task${briefingData.delayedTasks.length === 1 ? '' : 's'}, such as ${briefingData.delayedTasks.map(t => t.name).join(', ')}.
+      Looking ahead, you have ${briefingData.upcomingTasks.length} upcoming task${briefingData.upcomingTasks.length === 1 ? '' : 's'} and ${briefingData.tomorrowTasks.length} task${briefingData.tomorrowTasks.length === 1 ? '' : 's'} due tomorrow.`;
+      setAiExplanation(fallbackExplanation);
+      return fallbackExplanation;
     } finally {
       setIsLoading(false);
     }
@@ -144,7 +155,36 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
       }
 
       if (textToSpeak && speechSynthesis) {
+        // Get available voices
+        const voices = speechSynthesis.getVoices();
+        // Try to find a natural-sounding voice
+        const preferredVoices = [
+          'Microsoft Zira Desktop', // Windows
+          'Microsoft David Desktop', // Windows
+          'Google US English', // Chrome
+          'Samantha', // macOS
+          'Alex', // macOS
+          'Daniel' // macOS
+        ];
+        
+        let selectedVoice = voices.find(voice => 
+          preferredVoices.includes(voice.name)
+        ) || voices.find(voice => 
+          voice.lang.includes('en') && 
+          !voice.name.includes('Microsoft') && 
+          !voice.name.includes('Google')
+        ) || voices[0];
+
         const utterance = new SpeechSynthesisUtterance(textToSpeak);
+        utterance.lang = 'en-US';
+        utterance.voice = selectedVoice;
+        // More natural speaking rate
+        utterance.rate = 0.9;
+        // Slightly higher pitch for more natural sound
+        utterance.pitch = 1.1;
+        // Add pauses between sentences
+        utterance.text = textToSpeak.replace(/\./g, '. ');
+        
         utterance.onend = () => setIsSpeaking(false);
         utterance.onerror = () => setIsSpeaking(false);
         speechSynthesis.speak(utterance);

@@ -71,9 +71,9 @@ async def get_completion(prompt: str, messages: Optional[List[dict]] = None, mod
         The generated text.
     """
     try:
-        # Check if the prompt contains task assignment keywords
+        # Check if the prompt contains task assignment keywords and is not a briefing explanation
         task_keywords = ["assign", "task", "create task", "new task", "to do"]
-        if any(keyword in prompt.lower() for keyword in task_keywords):
+        if any(keyword in prompt.lower() for keyword in task_keywords) and "briefing" not in prompt.lower():
             task_info = await extract_task_info(prompt)
             
             # Create the task
@@ -101,11 +101,23 @@ async def get_completion(prompt: str, messages: Optional[List[dict]] = None, mod
         
         # Otherwise, use a system message + user prompt
         else:
+            system_message = "You are Vira, an AI assistant for teams. You are helpful, concise, and professional."
+            if "briefing" in prompt.lower():
+                system_message = """You are Vira, an AI assistant for teams. You are analyzing a daily briefing and providing a natural, conversational summary.
+                Focus on:
+                1. Overall progress and achievements
+                2. Areas needing attention
+                3. Priority tasks for today
+                4. Potential challenges and suggestions
+                5. Team workload distribution
+                
+                Make it sound natural and engaging, as if you're explaining it to a team member but it needs to be very brief and on point."""
+            
             response = await asyncio.to_thread(
                 client.chat.completions.create,
                 model=model,
                 messages=[
-                    {"role": "system", "content": "You are Vira, an AI assistant for teams. You are helpful, concise, and professional."},
+                    {"role": "system", "content": system_message},
                     {"role": "user", "content": prompt}
                 ],
                 max_tokens=max_tokens,
