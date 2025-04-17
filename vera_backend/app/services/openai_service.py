@@ -103,15 +103,23 @@ async def get_completion(prompt: str, messages: Optional[List[dict]] = None, mod
         else:
             system_message = "You are Vira, an AI assistant for teams. You are helpful, concise, and professional."
             if "briefing" in prompt.lower():
-                system_message = """You are Vira, an AI assistant for teams. You are analyzing a daily briefing and providing a natural, conversational summary.
-                Focus on:
-                1. Overall progress and achievements
-                2. Areas needing attention
-                3. Priority tasks for today
-                4. Potential challenges and suggestions
-                5. Team workload distribution
+                system_message = """You are Vira, an AI assistant providing a personalized briefing to a team member.
+                Your task is to summarize the team's progress and status in a clear, concise manner.
                 
-                Make it sound natural and engaging, as if you're explaining it to a team member but it needs to be very brief and on point."""
+                Focus on:
+                1. Individual team member contributions and progress
+                2. Any delays or issues that need supervisor attention
+                3. Upcoming deadlines and priorities
+                4. Team workload distribution and potential bottlenecks
+                5. Specific achievements and areas needing support
+                
+                Write as if you're directly addressing the supervisor, highlighting:
+                - Who completed what tasks
+                - Who is behind schedule and why
+                - Who has upcoming critical deadlines
+                - Any team members who might need additional support
+                
+                Keep it professional but conversational, as if you're giving a one-on-one update."""
             
             response = await asyncio.to_thread(
                 client.chat.completions.create,
