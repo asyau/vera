@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle, Calendar, Clock, AlertCircle, Volume2, Loader2 } from 'lucide-react';
 import {
   Dialog,
@@ -11,6 +11,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { ElevenLabsService } from '@/services/elevenLabsService';
 
 interface BriefingTask {
   id: string;
@@ -25,7 +26,8 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [aiExplanation, setAiExplanation] = useState('');
-  const [speechSynthesis, setSpeechSynthesis] = useState<SpeechSynthesis | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const elevenLabsService = ElevenLabsService.getInstance();
   
   const [briefingData] = useState({
     date: today,
@@ -93,7 +95,12 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
   };
   
   useEffect(() => {
-    setSpeechSynthesis(window.speechSynthesis);
+    // Clean up audio URL when component unmounts
+    return () => {
+      if (audioRef.current?.src) {
+        URL.revokeObjectURL(audioRef.current.src);
+      }
+    };
   }, []);
 
   const getAiExplanation = async () => {
@@ -140,13 +147,19 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
 
   const speakBriefing = async () => {
     if (isSpeaking) {
-      speechSynthesis?.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+        URL.revokeObjectURL(audioRef.current.src);
+        audioRef.current.src = '';
+      }
       setIsSpeaking(false);
       return;
     }
 
     try {
       setIsSpeaking(true);
+      setIsLoading(true);
       
       // Get AI explanation if we don't have one
       let textToSpeak = aiExplanation;
@@ -154,44 +167,35 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
         textToSpeak = await getAiExplanation();
       }
 
-      if (textToSpeak && speechSynthesis) {
-        // Get available voices
-        const voices = speechSynthesis.getVoices();
-        // Try to find a natural-sounding voice
-        const preferredVoices = [
-          'Microsoft Zira Desktop', // Windows
-          'Microsoft David Desktop', // Windows
-          'Google US English', // Chrome
-          'Samantha', // macOS
-          'Alex', // macOS
-          'Daniel' // macOS
-        ];
+      if (textToSpeak) {
+        // Get audio URL from ElevenLabs
+        const audioUrl = await elevenLabsService.textToSpeech(textToSpeak);
         
-        let selectedVoice = voices.find(voice => 
-          preferredVoices.includes(voice.name)
-        ) || voices.find(voice => 
-          voice.lang.includes('en') && 
-          !voice.name.includes('Microsoft') && 
-          !voice.name.includes('Google')
-        ) || voices[0];
-
-        const utterance = new SpeechSynthesisUtterance(textToSpeak);
-        utterance.lang = 'en-US';
-        utterance.voice = selectedVoice;
-        // More natural speaking rate
-        utterance.rate = 0.9;
-        // Slightly higher pitch for more natural sound
-        utterance.pitch = 1.1;
-        // Add pauses between sentences
-        utterance.text = textToSpeak.replace(/\./g, '. ');
+        // Create audio element if it doesn't exist
+        if (!audioRef.current) {
+          audioRef.current = new Audio();
+        }
         
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-        speechSynthesis.speak(utterance);
+        // Set up audio element
+        audioRef.current.src = audioUrl;
+        audioRef.current.onended = () => {
+          setIsSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        audioRef.current.onerror = () => {
+          console.error('Error playing audio');
+          setIsSpeaking(false);
+          URL.revokeObjectURL(audioUrl);
+        };
+        
+        // Play the audio
+        await audioRef.current.play();
       }
     } catch (error) {
       console.error('Error speaking briefing:', error);
       setIsSpeaking(false);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -323,7 +327,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
             <div className="bg-vira-light p-4 rounded-md border border-vira-primary/20">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-semibold text-vira-primary">
-                  AI Summary
+                  Vira Summary
                 </h3>
                 <Button
                   variant="ghost"
