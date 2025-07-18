@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Bell, Calendar, Menu, MessageSquare, Settings, User, Users } from 'lucide-react';
 import {
   DropdownMenu,
@@ -15,6 +15,7 @@ import DailyBriefing from "@/components/briefing/DailyBriefing";
 
 const Navbar = () => {
   const [showBriefing, setShowBriefing] = useState(false);
+  const navigate = useNavigate();
   
   return (
     <header className="bg-white shadow-sm border-b border-gray-100 py-3 z-10">
@@ -31,6 +32,16 @@ const Navbar = () => {
         </div>
         
         <div className="flex items-center space-x-2">
+          <Button 
+            onClick={() => navigate('/users')} 
+            variant="outline" 
+            size="sm" 
+            className="hidden md:flex"
+          >
+            <Users className="mr-2 h-4 w-4" />
+            Team Dashboard
+          </Button>
+          
           <Button 
             onClick={() => setShowBriefing(true)} 
             variant="outline" 
@@ -64,8 +75,13 @@ const Navbar = () => {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => navigate('/users')}>
+                <Users className="h-4 w-4 mr-2" />
+                Team Dashboard
+              </DropdownMenuItem>
               <DropdownMenuItem>Profile</DropdownMenuItem>
               <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuSeparator />
               <DropdownMenuItem>Sign out</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

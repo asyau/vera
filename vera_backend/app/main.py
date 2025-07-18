@@ -20,7 +20,7 @@ sentry_sdk.init(
 # Load environment variables from .env file
 load_dotenv()
 
-from app.routes import conversation, openai_service, task
+from app.routes import conversation, openai_service, task, user
 
 app = FastAPI(
     title="Vera API",
@@ -31,9 +31,17 @@ app = FastAPI(
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:8080", "https://localhost:8080"],  # Vite's default port
+    allow_origins=[
+        "http://localhost:5173", 
+        "http://localhost:8080", 
+        "https://localhost:8080",
+        "http://127.0.0.1:8080",
+        "https://127.0.0.1:8080",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000"
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"]
 )
@@ -46,10 +54,28 @@ logger = logging.getLogger(__name__)
 app.include_router(conversation.router, prefix="/api", tags=["conversation"])
 app.include_router(openai_service.router, prefix="/api", tags=["openai"])
 app.include_router(task.router, prefix="/api", tags=["tasks"])
+app.include_router(user.router, prefix="/api", tags=["users"])
 
 @app.get("/")
 async def root():
     return {"message": "Welcome to Vera API"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "message": "Backend is running"}
+
+@app.options("/api/tasks")
+async def tasks_options():
+    """Handle preflight requests for tasks endpoint"""
+    return JSONResponse(
+        status_code=200,
+        content={},
+        headers={
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )
 
 
 

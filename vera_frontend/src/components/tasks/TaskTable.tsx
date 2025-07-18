@@ -18,6 +18,7 @@ export interface Task {
   id: string;
   name: string;
   assignedTo: string;
+  assignedToName: string;
   dueDate: string;
   status: 'pending' | 'in-progress' | 'completed' | 'cancelled';
   description: string;
@@ -65,14 +66,14 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
     
     // Apply assignee filter
     if (assigneeFilter) {
-      passesAssigneeFilter = task.assignedTo === assigneeFilter;
+      passesAssigneeFilter = task.assignedToName === assigneeFilter;
     }
     
     return passesTimeFilter && passesAssigneeFilter;
   });
   
   // Get unique assignees for filtering
-  const assignees = [...new Set(tasks.map(task => task.assignedTo))];
+  const assignees = [...new Set(tasks.map(task => task.assignedToName))];
   
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
@@ -227,7 +228,7 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                     </div>
                     <div className="col-span-2 text-gray-500 flex items-center">
                       <User className="h-3 w-3 mr-1 text-gray-400" />
-                      <span className="truncate">{task.assignedTo}</span>
+                      <span className="truncate">{task.assignedToName}</span>
                     </div>
                     <div className="col-span-2 text-gray-500 flex items-center">
                       <Calendar className="h-3 w-3 mr-1 text-gray-400" />
@@ -265,7 +266,7 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                       <div className="flex justify-between items-center text-xs text-gray-500">
                         <div className="flex items-center">
                           <User className="h-3 w-3 mr-1" />
-                          <span className="truncate max-w-[80px]">{task.assignedTo}</span>
+                          <span className="truncate max-w-[80px]">{task.assignedToName}</span>
                         </div>
                         <div>{formatDate(task.dueDate)}</div>
                       </div>
@@ -298,7 +299,7 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Assigned To</h4>
-                  <p className="mt-1">{selectedTask.assignedTo}</p>
+                  <p className="mt-1">{selectedTask.assignedToName}</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Due Date</h4>

@@ -1,5 +1,38 @@
 const API_BASE_URL = 'http://localhost:8000/api';
 
+// Types
+export interface Task {
+  id: string;
+  name: string;
+  assignedTo: string;
+  assignedToName?: string;
+  dueDate?: string;
+  status: string;
+  description: string;
+  originalPrompt: string;
+  timeline: {
+    createdAt: string;
+    sentAt?: string;
+    completedAt?: string;
+  };
+  assigned_user?: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+  };
+}
+
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  team_id?: string;
+  team_name?: string;
+  company_name?: string;
+}
+
 export const api = {
   async getCompletion(prompt: string) {
     const response = await fetch(`${API_BASE_URL}/ai/respond`, {
@@ -93,6 +126,71 @@ export const api = {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to update task');
+    }
+    return response.json();
+  },
+
+  // User API functions
+  async getUsers() {
+    const response = await fetch(`${API_BASE_URL}/users`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to fetch users');
+    }
+    return response.json();
+  },
+
+  async getUser(userId: string) {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to fetch user');
+    }
+    return response.json();
+  },
+
+  async getTeams() {
+    const response = await fetch(`${API_BASE_URL}/teams`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to fetch teams');
+    }
+    return response.json();
+  },
+
+  async getCompanies() {
+    const response = await fetch(`${API_BASE_URL}/companies`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to fetch companies');
     }
     return response.json();
   },
