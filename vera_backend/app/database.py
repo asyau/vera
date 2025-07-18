@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Fix the DATABASE_URL format - it should be postgresql:// not postgres.
+# Also, the password should not be in square brackets
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres.aphnekdbxvzcofzzxghu:Virastartupsok@aws-0-eu-central-1.pooler.supabase.com:5432/postgres")
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
@@ -20,3 +22,5 @@ def get_db():
         yield db
     finally:
         db.close() 
+
+        

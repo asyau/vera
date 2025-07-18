@@ -17,6 +17,7 @@ interface BriefingTask {
   id: string;
   name: string;
   assignedTo: string;
+  assignedToName: string;
   dueDate?: string;
   status: 'completed' | 'delayed' | 'upcoming';
 }
@@ -223,7 +224,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
             {task.name}
           </p>
           <p className="text-xs text-gray-500 truncate">
-            Assigned to {task.assignedTo}
+            Assigned to {task.assignedToName}
             {task.dueDate && ` · Due ${formatDate(task.dueDate)}`}
           </p>
         </div>
