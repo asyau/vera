@@ -7,3 +7,6 @@ httpx
 sqlalchemy
 psycopg2-binary
 sentry-sdk
+PyJWT==2.8.0
+bcrypt==4.1.2
+python-multipart
