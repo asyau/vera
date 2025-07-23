@@ -2,13 +2,13 @@ import React, { useState } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import ChatPanel from '@/components/chat/ChatPanel';
 import TaskTable from '@/components/tasks/TaskTable';
-import TriChatPanel from '@/components/trichat/TriChatPanel';
+import TeamChatPanel from '@/components/messaging/TeamChatPanel';
 import ChatSidebar from '@/components/layout/ChatSidebar';
 import ViewNavigation from '@/components/layout/ViewNavigation';
 import { SessionProvider, useSession } from '@/contexts/SessionContext';
 
 // Type for view modes
-type ViewMode = 'chat' | 'tasks' | 'trichat';
+type ViewMode = 'chat' | 'tasks' | 'messaging';
 
 // Layout wrapper component
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -92,10 +92,10 @@ const MainContent = () => {
             </div>
           )}
           
-          {/* TriChat view - shown in trichat mode */}
-          {viewMode === 'trichat' && (
+          {/* Team Chat view - shown in messaging mode */}
+          {viewMode === 'messaging' && (
             <div className="w-full h-full overflow-hidden">
-              <TriChatPanel />
+              <TeamChatPanel />
             </div>
           )}
         </div>
