@@ -20,7 +20,7 @@ sentry_sdk.init(
 # Load environment variables from .env file
 load_dotenv()
 
-from app.routes import conversation, openai_service, task, user
+from app.routes import conversation, openai_service, task, user, auth
 
 app = FastAPI(
     title="Vera API",
@@ -55,6 +55,7 @@ app.include_router(conversation.router, prefix="/api", tags=["conversation"])
 app.include_router(openai_service.router, prefix="/api", tags=["openai"])
 app.include_router(task.router, prefix="/api", tags=["tasks"])
 app.include_router(user.router, prefix="/api", tags=["users"])
+app.include_router(auth.router, prefix="/api", tags=["auth"])
 
 @app.get("/")
 async def root():

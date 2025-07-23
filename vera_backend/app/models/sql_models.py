@@ -50,6 +50,7 @@ class User(Base):
     id = Column(String, primary_key=True, index=True)
     name = Column(String)
     email = Column(String, unique=True, index=True)
+    password = Column(String)  # Hashed password
     role = Column(String)  # 'employee' or 'supervisor'
     team_id = Column(String, ForeignKey("teams.id"))
     team = relationship("Team", back_populates="users")
