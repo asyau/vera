@@ -122,12 +122,8 @@ async def create_task(request: Request, task_info: TaskCreate, db: Session = Dep
         # Log the incoming request data
         logger.info(f"Received task creation request: {task_info.dict()}")
         
-        # Get or create user ID from name (for backward compatibility)
-        if hasattr(task_info, 'assignedTo') and task_info.assignedTo:
-            user_id = get_user_id_by_name(db, task_info.assignedTo)
-            assigned_to = user_id
-        else:
-            assigned_to = task_info.assigned_to
+        # Handle assigned_to field
+        assigned_to = task_info.assigned_to
         
         # Create task
         task = Task(

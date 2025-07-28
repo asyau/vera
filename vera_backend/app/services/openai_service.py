@@ -15,17 +15,86 @@ if not api_key:
 # Initialize client with only the api_key parameter
 client = OpenAI(api_key=api_key)
 
+async def find_user_by_name(name: str) -> Optional[str]:
+    """Find an existing user by name. Returns None if user doesn't exist."""
+    try:
+        async with httpx.AsyncClient() as http_client:
+            response = await http_client.get("http://localhost:8000/api/users")
+            if response.status_code == 200:
+                users_data = response.json()
+                if users_data and "users" in users_data:
+                    for user in users_data["users"]:
+                        if user["name"].lower() == name.lower():
+                            print(f"Found existing user: {user['id']} for name: {name}")
+                            return user["id"]
+            
+            print(f"User '{name}' not found in existing team members")
+            return None
+    except Exception as e:
+        print(f"Error finding user by name {name}: {str(e)}")
+        return None
+
+async def get_or_create_default_user() -> Optional[str]:
+    """Get or create a default user for task creation."""
+    try:
+        async with httpx.AsyncClient() as http_client:
+            # First try to get an existing user
+            response = await http_client.get("http://localhost:8000/api/users")
+            if response.status_code == 200:
+                users_data = response.json()
+                if users_data and "users" in users_data and len(users_data["users"]) > 0:
+                    user_id = users_data["users"][0]["id"]
+                    print(f"Found existing user: {user_id}")
+                    return user_id  # Return the first user's ID
+            
+            # If no users exist, we need to create a company first, then a user
+            # First create a default company
+            company_data = {
+                "name": "Default Company",
+                "company_profile": {"description": "Default company for system tasks"}
+            }
+            
+            company_response = await http_client.post("http://localhost:8000/api/companies", json=company_data)
+            if company_response.status_code != 200:
+                print(f"Failed to create company: {company_response.status_code}")
+                # If we can't create a company, we can't create a user, so we'll use a fallback approach
+                return None
+            
+            company = company_response.json()
+            company_id = company["id"]
+            
+            # Now create a default user with the company ID
+            default_user_data = {
+                "name": "Default User",
+                "email": "default@company.com",
+                "role": "Employee",
+                "company_id": company_id
+            }
+            
+            user_response = await http_client.post("http://localhost:8000/api/users", json=default_user_data)
+            if user_response.status_code == 200:
+                user = user_response.json()
+                print(f"Created default user: {user['id']}")
+                return user["id"]
+            else:
+                print(f"Failed to create user: {user_response.status_code}")
+                return None
+    except Exception as e:
+        print(f"Error getting or creating default user: {str(e)}")
+        return None
+
 async def extract_task_info(prompt: str) -> Dict:    
     current_time = datetime.utcnow()
     """Extract task information from a prompt using OpenAI."""
     system_prompt = f"""Extract task information from the following message. 
     Return a JSON object with the following fields:
     - name: A short title for the task
-    - assignedTo: The person to assign the task to
-    - dueDate: Today is {current_time.strftime('%Y-%m-%d %H:%M:%S')}. Use this information for due date calculating due date. The due date in YYYY-MM-DD format (if mentioned)
-    - status: One of 'pending', 'in-progress', 'completed', 'cancelled'
     - description: A detailed description of the task
-    - originalPrompt: The original user prompt
+    - status: One of 'pending', 'in-progress', 'completed', 'cancelled'
+    - priority: One of 'low', 'medium', 'high'
+    - due_date: Today is {current_time.strftime('%Y-%m-%d %H:%M:%S')}. Use this information for calculating due date. The due date in YYYY-MM-DD format (if mentioned)
+    - assigned_to: The name of the person to assign the task to (only if a specific person is mentioned in the prompt, otherwise null)
+    - original_prompt: The original user prompt
     Return ONLY the JSON object, nothing else.
     """
     
@@ -44,15 +113,81 @@ async def extract_task_info(prompt: str) -> Dict:
         content = response.choices[0].message.content.strip()
         # Remove any markdown code block syntax if present
         content = content.replace('```json', '').replace('```', '').strip()
+        
+        # Debug: Print the raw content to see what we're getting
+        print(f"Raw OpenAI response: {content}")
+        
         task_info = json.loads(content)
         
-        # Add task creation timestamp
-        task_info['created_at'] = datetime.now().isoformat()
+        # Get a valid user ID for created_by
+        created_by_user_id = await get_or_create_default_user()
+        if not created_by_user_id:
+            # If we can't get a valid user, we can't create the task
+            raise Exception("No valid user found for task creation")
         
-        return task_info
+        # Handle assigned_to field
+        assigned_to_user_id = None
+        assigned_to_name = task_info.get("assigned_to")
+        if assigned_to_name:
+            assigned_to_user_id = await find_user_by_name(assigned_to_name)
+            if assigned_to_user_id:
+                print(f"Assigned task to user: {assigned_to_name} (ID: {assigned_to_user_id})")
+            else:
+                print(f"Could not find user '{assigned_to_name}' in existing team members")
+        
+        # Transform the response to match TaskCreate model expectations
+        transformed_task_info = {
+            "name": task_info.get("name", "Untitled Task"),
+            "description": task_info.get("description", ""),
+            "status": task_info.get("status", "pending"),
+            "priority": task_info.get("priority", "medium"),
+            "due_date": task_info.get("due_date"),
+            "original_prompt": task_info.get("original_prompt", prompt),
+            "created_by": created_by_user_id,
+            "assigned_to": assigned_to_user_id,
+            "project_id": None,
+            "conversation_id": None
+        }
+        
+        return transformed_task_info
     except Exception as e:
         print(f"Error extracting task info: {str(e)}")
-        raise
+        # Return a default task structure if parsing fails
+        created_by_user_id = await get_or_create_default_user()
+        if not created_by_user_id:
+            raise Exception("No valid user found for task creation")
+        
+        # Try to extract a name from the prompt for assignment
+        assigned_to_user_id = None
+        # Simple name extraction - look for common patterns like "John must", "assign to John", etc.
+        import re
+        name_patterns = [
+            r'(\w+)\s+must\s+',
+            r'assign\s+to\s+(\w+)',
+            r'(\w+)\s+should\s+',
+            r'(\w+)\s+needs\s+to\s+'
+        ]
+        
+        for pattern in name_patterns:
+            match = re.search(pattern, prompt, re.IGNORECASE)
+            if match:
+                name = match.group(1)
+                assigned_to_user_id = await find_user_by_name(name)
+                if assigned_to_user_id:
+                    print(f"Extracted and assigned task to user: {name} (ID: {assigned_to_user_id})")
+                break
+        
+        return {
+            "name": "Task from conversation",
+            "description": prompt,
+            "status": "pending",
+            "priority": "medium",
+            "original_prompt": prompt,
+            "created_by": created_by_user_id,
+            "assigned_to": assigned_to_user_id,
+            "project_id": None,
+            "conversation_id": None
+        }
 
 async def get_completion(prompt: str, messages: Optional[List[dict]] = None, model: str = "gpt-4", max_tokens: int = 1000) -> str:
     """
