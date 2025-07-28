@@ -993,4 +993,26 @@ export const api = {
     }
     return response.json();
   },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      mode: 'cors',
+      body: JSON.stringify({
+        current_password: currentPassword,
+        new_password: newPassword,
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to change password');
+    }
+    return response.json();
+  },
 }; 
