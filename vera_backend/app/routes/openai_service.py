@@ -23,7 +23,7 @@ class MessageResponse(BaseModel):
     name: Optional[str] = None
     timestamp: str
 
-class TeamChatMessageRequest(BaseModel):
+class TriChatMessageRequest(BaseModel):
     conversation_id: str
     messages: List[dict]  # List of previous messages
     new_message: MessageRequest
@@ -58,9 +58,9 @@ async def ai_respond(request: MessageRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OpenAI API error: {str(e)}")
 
-@router.post("/ai/team-chat-respond", response_model=MessageResponse)
-async def team_chat_respond(request: TeamChatMessageRequest):
-    """Process a Team Chat message and generate AI response if @AI is mentioned"""
+@router.post("/ai/trichat-respond", response_model=MessageResponse)
+async def trichat_respond(request: TriChatMessageRequest):
+    """Process a TriChat message and generate AI response if @AI is mentioned"""
     if not request.is_at_ai:
         # If @AI is not mentioned, just return an empty response
         return None
