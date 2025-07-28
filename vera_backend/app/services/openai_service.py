@@ -46,11 +46,8 @@ async def extract_task_info(prompt: str) -> Dict:
         content = content.replace('```json', '').replace('```', '').strip()
         task_info = json.loads(content)
         
-        # Add timeline information
-        task_info['timeline'] = {
-            'createdAt': datetime.now().isoformat(),
-            'sentAt': datetime.now().isoformat()
-        }
+        # Add task creation timestamp
+        task_info['created_at'] = datetime.now().isoformat()
         
         return task_info
     except Exception as e:
@@ -84,7 +81,8 @@ async def get_completion(prompt: str, messages: Optional[List[dict]] = None, mod
                 )
                 if response.status_code == 200:
                     task = response.json()
-                    return f"I've created a task: '{task['name']}' assigned to {task['assignedTo']}. Due date: {task.get('dueDate', 'Not specified')}, Status: {task['status']}"
+                    assignee_name = task.get('assignee', {}).get('name', 'Unassigned') if task.get('assignee') else 'Unassigned'
+                    return f"I've created a task: '{task['name']}' assigned to {assignee_name}. Due date: {task.get('due_date', 'Not specified')}, Status: {task['status']}"
                 else:
                     return "I tried to create the task but encountered an error. Please try again."
         
