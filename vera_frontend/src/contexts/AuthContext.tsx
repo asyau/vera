@@ -1,22 +1,30 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { api, User } from '@/lib/api';
+import { api, AuthResponse } from '@/lib/api';
+
+// Simple user interface for auth context
+interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+}
 
 export interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (name: string, email: string, password: string, role: 'employee' | 'supervisor') => Promise<void>;
+  signup: (name: string, email: string, password: string, role: string, company_id: string) => Promise<void>;
   logout: () => void;
-  hasRole: (role: 'employee' | 'supervisor') => boolean;
-  hasAnyRole: (roles: ('employee' | 'supervisor')[]) => boolean;
+  hasRole: (role: string) => boolean;
+  hasAnyRole: (roles: string[]) => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
@@ -60,14 +68,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const signup = async (name: string, email: string, password: string, role: 'employee' | 'supervisor') => {
+  const signup = async (name: string, email: string, password: string, role: string, company_id: string) => {
     try {
       setIsLoading(true);
       const { token, user: userData } = await api.signup({ 
         name, 
         email, 
         password, 
-        role 
+        role,
+        company_id
       });
       
       // Store token
@@ -88,11 +97,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     navigate('/login');
   };
 
-  const hasRole = (role: 'employee' | 'supervisor') => {
+  const hasRole = (role: string) => {
     return user?.role === role;
   };
 
-  const hasAnyRole = (roles: ('employee' | 'supervisor')[]) => {
+  const hasAnyRole = (roles: string[]) => {
     return user ? roles.includes(user.role) : false;
   };
 
