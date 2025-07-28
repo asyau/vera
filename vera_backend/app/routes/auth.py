@@ -52,6 +52,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+    if hashed_password is None:
+        return False
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
 
 def get_password_hash(password: str) -> str:
@@ -94,6 +96,13 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect email or password"
+            )
+        
+        # Check if user has a password set
+        if user.password is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User account not properly configured. Please contact administrator."
             )
         
         # Verify password
