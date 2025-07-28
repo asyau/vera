@@ -36,6 +36,10 @@ class UserSignup(BaseModel):
     password: str
     role: str
 
+class PasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+
 class AuthUserResponse(BaseModel):
     id: str
     name: str
@@ -237,4 +241,33 @@ async def get_current_user_info(current_user: User = Depends(get_current_user), 
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
-        ) 
+        )
+
+@router.post("/auth/change-password")
+async def change_password(
+    password_data: PasswordChange, 
+    current_user: User = Depends(get_current_user), 
+    db: Session = Depends(get_db)
+):
+    """Change user password"""
+    try:
+        # Verify current password
+        if not verify_password(password_data.current_password, current_user.password):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Current password is incorrect"
+            )
+        
+        # Hash new password
+        hashed_new_password = get_password_hash(password_data.new_password)
+        
+        # Update user password
+        current_user.password = hashed_new_password
+        db.commit()
+        
+        return {"message": "Password changed successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error changing password: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error changing password: {str(e)}")

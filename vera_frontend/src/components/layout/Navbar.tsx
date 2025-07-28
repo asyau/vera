@@ -102,8 +102,18 @@ const Navbar = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="hover:bg-gray-50 transition-colors duration-150">Profile</DropdownMenuItem>
-              <DropdownMenuItem className="hover:bg-gray-50 transition-colors duration-150">Settings</DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => navigate('/profile')} 
+                className="hover:bg-gray-50 transition-colors duration-150"
+              >
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => navigate('/settings')} 
+                className="hover:bg-gray-50 transition-colors duration-150"
+              >
+                Settings
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={logout} className="hover:bg-red-50 text-red-600 transition-colors duration-150">
                 <LogOut className="h-4 w-4 mr-2" />
