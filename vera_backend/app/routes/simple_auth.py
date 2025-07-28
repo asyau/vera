@@ -1,55 +1,42 @@
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
-from typing import Optional
-import jwt
-import bcrypt
-from datetime import datetime, timedelta
-import logging
-import os
-
-from app.models.sql_models import User, Company
 from app.database import get_db
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from app.models.sql_models import User, Company
+import bcrypt
+import jwt
+from datetime import datetime, timedelta
+from pydantic import BaseModel
 
 router = APIRouter()
-security = HTTPBearer()
 
-# JWT Configuration
-SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-change-in-production")
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-
-# Pydantic models for authentication
-from pydantic import BaseModel, EmailStr
-
-class UserLogin(BaseModel):
+# Simple models
+class SimpleLogin(BaseModel):
     email: str
     password: str
 
-class UserSignup(BaseModel):
+class SimpleSignup(BaseModel):
     name: str
     email: str
     password: str
     role: str
 
-class AuthUserResponse(BaseModel):
+class SimpleUser(BaseModel):
     id: str
     name: str
     email: str
     role: str
-    company_id: str
-    team_id: Optional[str] = None
-    project_id: Optional[str] = None
 
-class TokenResponse(BaseModel):
+class SimpleTokenResponse(BaseModel):
     token: str
-    user: AuthUserResponse
+    user: SimpleUser
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+# JWT Configuration
+SECRET_KEY = "your-secret-key-change-in-production"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -64,6 +51,8 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def get_password_hash(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+security = HTTPBearer()
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
     try:
@@ -92,9 +81,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         )
     return user
 
-@router.post("/auth/login", response_model=TokenResponse)
-async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
-    """Login user with email and password"""
+@router.post("/simple-auth/login", response_model=SimpleTokenResponse)
+async def simple_login(user_credentials: SimpleLogin, db: Session = Depends(get_db)):
+    """Simple login endpoint"""
     try:
         # Find user by email
         user = db.query(User).filter(User.email == user_credentials.email).first()
@@ -114,34 +103,31 @@ async def login(user_credentials: UserLogin, db: Session = Depends(get_db)):
         # Create access token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": user.id}, expires_delta=access_token_expires
+            data={"sub": str(user.id)}, expires_delta=access_token_expires
         )
         
         # Return token and user info
-        return TokenResponse(
+        return SimpleTokenResponse(
             token=access_token,
-            user=AuthUserResponse(
+            user=SimpleUser(
                 id=str(user.id),
                 name=user.name,
                 email=user.email,
-                role=user.role,
-                company_id=str(user.company_id),
-                team_id=str(user.team_id) if user.team_id else None,
-                project_id=str(user.project_id) if user.project_id else None
+                role=user.role
             )
         )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Login error: {str(e)}")
+        print(f"Login error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
         )
 
-@router.post("/auth/signup", response_model=TokenResponse)
-async def signup(user_data: UserSignup, db: Session = Depends(get_db)):
-    """Register a new user"""
+@router.post("/simple-auth/signup", response_model=SimpleTokenResponse)
+async def simple_signup(user_data: SimpleSignup, db: Session = Depends(get_db)):
+    """Simple signup endpoint"""
     try:
         # Check if user already exists
         existing_user = db.query(User).filter(User.email == user_data.email).first()
@@ -151,16 +137,6 @@ async def signup(user_data: UserSignup, db: Session = Depends(get_db)):
                 detail="Email already registered"
             )
         
-        # Validate role
-        if user_data.role not in ['employee', 'supervisor']:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Invalid role. Must be 'employee' or 'supervisor'"
-            )
-        
-        # Hash password
-        hashed_password = get_password_hash(user_data.password)
-        
         # Get the first company (for demo purposes)
         company = db.query(Company).first()
         if not company:
@@ -168,6 +144,9 @@ async def signup(user_data: UserSignup, db: Session = Depends(get_db)):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="No company found. Please create a company first."
             )
+        
+        # Hash password
+        hashed_password = get_password_hash(user_data.password)
         
         # Create new user
         new_user = User(
@@ -185,46 +164,40 @@ async def signup(user_data: UserSignup, db: Session = Depends(get_db)):
         # Create access token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
-            data={"sub": new_user.id}, expires_delta=access_token_expires
+            data={"sub": str(new_user.id)}, expires_delta=access_token_expires
         )
         
         # Return token and user info
-        return TokenResponse(
+        return SimpleTokenResponse(
             token=access_token,
-            user=AuthUserResponse(
+            user=SimpleUser(
                 id=str(new_user.id),
                 name=new_user.name,
                 email=new_user.email,
-                role=new_user.role,
-                company_id=str(new_user.company_id),
-                team_id=str(new_user.team_id) if new_user.team_id else None,
-                project_id=str(new_user.project_id) if new_user.project_id else None
+                role=new_user.role
             )
         )
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Signup error: {str(e)}")
+        print(f"Signup error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
         )
 
-@router.get("/auth/me", response_model=AuthUserResponse)
-async def get_current_user_info(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+@router.get("/simple-auth/me", response_model=SimpleUser)
+async def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current user information"""
     try:
-        return AuthUserResponse(
+        return SimpleUser(
             id=str(current_user.id),
             name=current_user.name,
             email=current_user.email,
-            role=current_user.role,
-            company_id=str(current_user.company_id),
-            team_id=str(current_user.team_id) if current_user.team_id else None,
-            project_id=str(current_user.project_id) if current_user.project_id else None
+            role=current_user.role
         )
     except Exception as e:
-        logger.error(f"Get current user error: {str(e)}")
+        print(f"Get current user error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Internal server error"
