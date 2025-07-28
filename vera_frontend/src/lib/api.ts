@@ -206,6 +206,43 @@ export interface IntegrationListResponse {
   total: number;
 }
 
+// Enhanced messaging interfaces
+export interface Contact {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  team_id?: string;
+  team_name?: string;
+  company_name?: string;
+  is_online: boolean;
+  last_seen?: string;
+  can_message: boolean;
+}
+
+export interface CreateConversationRequest {
+  type: 'direct' | 'group';
+  name?: string;
+  participants: string[];
+}
+
+export interface SendMessageRequest {
+  conversation_id: string;
+  content: string;
+  attachments?: Array<{ id: string; name: string; type: string; url: string }>;
+}
+
+export interface UserPermissions {
+  can_message: boolean;
+  reason: string;
+  target_user: {
+    id: string;
+    name: string;
+    role: string;
+    team_name?: string;
+  };
+}
+
 // Create/Update types
 export interface CompanyCreate {
   name: string;
@@ -742,8 +779,8 @@ export const api = {
   },
 
   // Messaging API functions
-  async getContacts() {
-    const response = await fetch(`${API_BASE_URL}/contacts`, {
+  async getContacts(currentUserId: string): Promise<Contact[]> {
+    const response = await fetch(`${API_BASE_URL}/contacts?current_user_id=${currentUserId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -758,7 +795,7 @@ export const api = {
     return response.json();
   },
 
-  async getMessages(conversationId: string) {
+  async getMessages(conversationId: string): Promise<Message[]> {
     const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages`, {
       method: 'GET',
       headers: {
@@ -774,8 +811,8 @@ export const api = {
     return response.json();
   },
 
-  async sendMessage(conversationId: string, content: string, attachments?: Array<{ id: string; name: string; type: string; url: string }>) {
-    const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages`, {
+  async sendMessage(conversationId: string, content: string, currentUserId: string, attachments?: Array<{ id: string; name: string; type: string; url: string }>): Promise<Message> {
+    const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages?current_user_id=${currentUserId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -795,8 +832,8 @@ export const api = {
     return response.json();
   },
 
-  async createConversationWithParticipants(type: 'direct' | 'group', participants: string[], name?: string) {
-    const response = await fetch(`${API_BASE_URL}/conversations`, {
+  async createConversationWithParticipants(type: 'direct' | 'group', participants: string[], currentUserId: string, name?: string): Promise<Conversation> {
+    const response = await fetch(`${API_BASE_URL}/conversations?current_user_id=${currentUserId}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -812,6 +849,22 @@ export const api = {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to create conversation');
+    }
+    return response.json();
+  },
+
+  async getUserPermissions(userId: string, currentUserId: string): Promise<UserPermissions> {
+    const response = await fetch(`${API_BASE_URL}/users/${userId}/permissions?current_user_id=${currentUserId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to get user permissions');
     }
     return response.json();
   },
