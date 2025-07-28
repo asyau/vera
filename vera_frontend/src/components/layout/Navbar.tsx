@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Calendar, Menu, MessageSquare, Settings, User, Users, LogOut, Shield } from 'lucide-react';
+import { Bell, Calendar, Menu, MessageSquare, Settings, User, Users, LogOut, Shield, Home } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import DailyBriefing from "@/components/briefing/DailyBriefing";
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -24,29 +25,31 @@ const Navbar = () => {
     <header className="bg-white/80 backdrop-blur-md border-b border-gray-100/50 py-4 z-10 sticky top-0">
       <div className="container px-6 mx-auto flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <Link to="/" className="flex items-center group">
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl w-10 h-10 flex items-center justify-center mr-3 shadow-lg group-hover:shadow-xl transition-all duration-200 group-hover:scale-105">
-              <span className="text-white font-bold text-lg">V</span>
-            </div>
-            <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-              Vira
-            </span>
-          </Link>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                onClick={() => navigate('/')}
+                variant="ghost"
+                className="flex items-center group hover:bg-gray-50 rounded-lg px-2 py-1 transition-all duration-200"
+              >
+                <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-xl w-10 h-10 flex items-center justify-center mr-3 shadow-lg group-hover:shadow-xl transition-all duration-200 group-hover:scale-105">
+                  <span className="text-white font-bold text-lg">V</span>
+                </div>
+                <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600 group-hover:from-blue-700 group-hover:to-indigo-700 transition-all duration-200">
+                  Vira
+                </span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <div className="flex items-center space-x-2">
+                <Home className="h-4 w-4" />
+                <span>Go to Home</span>
+              </div>
+            </TooltipContent>
+          </Tooltip>
         </div>
         
         <div className="flex items-center space-x-3">
-          {hasRole('supervisor') && (
-            <Button 
-              onClick={() => navigate('/users')} 
-              variant="outline" 
-              size="sm" 
-              className="hidden md:flex bg-white/50 backdrop-blur-sm border-gray-200 hover:bg-white hover:shadow-md transition-all duration-200"
-            >
-              <Users className="mr-2 h-4 w-4" />
-              Team Dashboard
-            </Button>
-          )}
-          
           <Button 
             onClick={() => setShowBriefing(true)} 
             variant="outline" 
@@ -99,12 +102,6 @@ const Navbar = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              {hasRole('supervisor') && (
-                <DropdownMenuItem onClick={() => navigate('/users')} className="hover:bg-gray-50 transition-colors duration-150">
-                  <Users className="h-4 w-4 mr-2" />
-                  Team Dashboard
-                </DropdownMenuItem>
-              )}
               <DropdownMenuItem className="hover:bg-gray-50 transition-colors duration-150">Profile</DropdownMenuItem>
               <DropdownMenuItem className="hover:bg-gray-50 transition-colors duration-150">Settings</DropdownMenuItem>
               <DropdownMenuSeparator />

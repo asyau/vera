@@ -12,7 +12,9 @@ import {
   MessageSquare,
   Bot,
   Filter,
-  ChevronDown
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -83,6 +85,7 @@ const TeamChatPanel: React.FC = () => {
   const [newMessage, setNewMessage] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [showContacts, setShowContacts] = useState(true);
+  const [showConversationList, setShowConversationList] = useState(true);
   const [activeTab, setActiveTab] = useState<'conversations' | 'contacts'>('conversations');
   const [viraThinking, setViraThinking] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -351,18 +354,38 @@ const TeamChatPanel: React.FC = () => {
   return (
     <div className="flex h-full bg-white">
       {/* Contact List Sidebar */}
-      <div className={`w-80 border-r border-gray-200 flex flex-col ${showContacts ? 'block' : 'hidden md:block'}`}>
+      <div className={`${showConversationList ? 'w-80' : 'w-12'} border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out relative`}>
+        {/* Toggle Button - Always Visible */}
+        <Button 
+          size="sm" 
+          variant="ghost" 
+          onClick={() => setShowConversationList(!showConversationList)}
+          className="absolute -right-3 top-4 h-6 w-6 p-0 bg-white border border-gray-200 rounded-full shadow-sm z-10 hover:bg-gray-50"
+        >
+          {showConversationList ? (
+            <ChevronLeft className="h-3 w-3" />
+          ) : (
+            <ChevronRight className="h-3 w-3" />
+          )}
+        </Button>
+
         {/* Header */}
         <div className="p-4 border-b border-gray-200">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Messages</h2>
-            <Button size="sm" variant="outline" onClick={() => setShowContacts(!showContacts)}>
-              <Plus className="h-4 w-4" />
-            </Button>
+            <h2 className={`text-lg font-semibold text-gray-900 transition-opacity duration-300 ${showConversationList ? 'opacity-100' : 'opacity-0'}`}>
+              Messages
+            </h2>
+            <div className="flex items-center space-x-2">
+              {showConversationList && (
+                <Button size="sm" variant="outline" onClick={() => setShowContacts(!showContacts)}>
+                  <Plus className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
           </div>
           
           {/* Search */}
-          <div className="relative">
+          <div className={`relative transition-opacity duration-300 ${showConversationList ? 'opacity-100' : 'opacity-0'}`}>
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder={activeTab === 'conversations' ? "Search conversations..." : "Search contacts..."}
@@ -374,7 +397,7 @@ const TeamChatPanel: React.FC = () => {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-gray-200">
+        <div className={`flex border-b border-gray-200 transition-opacity duration-300 ${showConversationList ? 'opacity-100' : 'opacity-0'}`}>
           <button
             onClick={() => setActiveTab('conversations')}
             className={`flex-1 px-4 py-2 text-sm font-medium border-b-2 ${
@@ -394,7 +417,7 @@ const TeamChatPanel: React.FC = () => {
         </div>
 
         {/* Content Area */}
-        <ScrollArea className="flex-1">
+        <ScrollArea className={`flex-1 transition-opacity duration-300 ${showConversationList ? 'opacity-100' : 'opacity-0'}`}>
           <div className="p-2">
             {activeTab === 'conversations' ? (
               // Conversations List
