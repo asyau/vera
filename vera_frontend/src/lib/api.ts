@@ -71,8 +71,99 @@ export const api = {
     return response.json();
   },
 
+  // Messaging API functions
+  async getConversations() {
+    const response = await fetch(`${API_BASE_URL}/conversations`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to fetch conversations');
+    }
+    return response.json();
+  },
+
+  async getContacts() {
+    const response = await fetch(`${API_BASE_URL}/contacts`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to fetch contacts');
+    }
+    return response.json();
+  },
+
+  async getMessages(conversationId: string) {
+    const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to fetch messages');
+    }
+    return response.json();
+  },
+
+  async sendMessage(conversationId: string, content: string, attachments?: Array<{ id: string; name: string; type: string; url: string }>) {
+    const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+      body: JSON.stringify({
+        conversation_id: conversationId,
+        content,
+        attachments
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to send message');
+    }
+    return response.json();
+  },
+
+  async createConversation(type: 'direct' | 'group', participants: string[], name?: string) {
+    const response = await fetch(`${API_BASE_URL}/conversations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+      body: JSON.stringify({
+        type,
+        participants,
+        name
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to create conversation');
+    }
+    return response.json();
+  },
+
   async getConversation(messages: Array<{ role: string; content: string }>) {
-    const response = await fetch(`${API_BASE_URL}/ai/trichat-respond`, {
+    const response = await fetch(`${API_BASE_URL}/ai/team-chat-respond`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
