@@ -12,23 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTasks } from '@/hooks/use-tasks';
-
-// Task type definition
-export interface Task {
-  id: string;
-  name: string;
-  assignedTo: string;
-  assignedToName: string;
-  dueDate: string;
-  status: 'pending' | 'in-progress' | 'completed' | 'cancelled';
-  description: string;
-  originalPrompt: string;
-  timeline: {
-    createdAt: string;
-    sentAt?: string;
-    completedAt?: string;
-  };
-}
+import { Task } from '@/lib/api';
 
 interface TaskTableProps {
   fullScreen?: boolean;
@@ -55,25 +39,25 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
     // Apply time filter
     if (activeFilter === 'today') {
       const today = new Date().toISOString().split('T')[0];
-      passesTimeFilter = task.dueDate === today;
+      passesTimeFilter = task.due_date === today;
     } else if (activeFilter === 'week') {
       const today = new Date();
       const weekLater = new Date();
       weekLater.setDate(today.getDate() + 7);
-      const taskDate = new Date(task.dueDate);
+      const taskDate = new Date(task.due_date || '');
       passesTimeFilter = taskDate >= today && taskDate <= weekLater;
     }
     
     // Apply assignee filter
     if (assigneeFilter) {
-      passesAssigneeFilter = task.assignedToName === assigneeFilter;
+      passesAssigneeFilter = task.assignee?.name === assigneeFilter;
     }
     
     return passesTimeFilter && passesAssigneeFilter;
   });
   
   // Get unique assignees for filtering
-  const assignees = [...new Set(tasks.map(task => task.assignedToName))];
+  const assignees = [...new Set(tasks.map(task => task.assignee?.name).filter(Boolean))];
   
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
@@ -228,14 +212,14 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                     </div>
                     <div className="col-span-2 text-gray-500 flex items-center">
                       <User className="h-3 w-3 mr-1 text-gray-400" />
-                      <span className="truncate">{task.assignedToName}</span>
+                      <span className="truncate">{task.assignee?.name || 'Unassigned'}</span>
                     </div>
                     <div className="col-span-2 text-gray-500 flex items-center">
                       <Calendar className="h-3 w-3 mr-1 text-gray-400" />
-                      <span>{formatDate(task.dueDate)}</span>
+                      <span>{task.due_date ? formatDate(task.due_date) : 'No due date'}</span>
                     </div>
                     <div className="col-span-1">
-                      <TaskStatus status={task.status} />
+                      <TaskStatus status={task.status as any} />
                     </div>
                   </div>
                 ))
@@ -266,9 +250,9 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                       <div className="flex justify-between items-center text-xs text-gray-500">
                         <div className="flex items-center">
                           <User className="h-3 w-3 mr-1" />
-                          <span className="truncate max-w-[80px]">{task.assignedToName}</span>
+                          <span className="truncate max-w-[80px]">{task.assignee?.name || 'Unassigned'}</span>
                         </div>
-                        <div>{formatDate(task.dueDate)}</div>
+                        <div>{task.due_date ? formatDate(task.due_date) : 'No due date'}</div>
                       </div>
                     </div>
                   ))}
@@ -299,16 +283,16 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Assigned To</h4>
-                  <p className="mt-1">{selectedTask.assignedToName}</p>
+                  <p className="mt-1">{selectedTask.assignee?.name || 'Unassigned'}</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Due Date</h4>
-                  <p className="mt-1">{formatDate(selectedTask.dueDate)}</p>
+                  <p className="mt-1">{selectedTask.due_date ? formatDate(selectedTask.due_date) : 'No due date'}</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Status</h4>
                   <div className="mt-1">
-                    <TaskStatus status={selectedTask.status} />
+                    <TaskStatus status={selectedTask.status as any} />
                   </div>
                 </div>
               </div>
@@ -321,7 +305,7 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
               <div>
                 <h4 className="text-sm font-medium text-gray-500">Original Prompt</h4>
                 <div className="mt-1 p-2 bg-gray-50 rounded-md text-gray-700 text-sm italic">
-                  "{selectedTask.originalPrompt}"
+                  "{selectedTask.original_prompt || 'No original prompt'}"
                 </div>
               </div>
               
@@ -335,26 +319,26 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                     <div className="ml-3">
                       <p className="text-sm font-medium">Created</p>
                       <p className="text-xs text-gray-500">
-                        {formatTimestamp(selectedTask.timeline.createdAt)}
+                        {formatTimestamp(selectedTask.created_at)}
                       </p>
                     </div>
                   </div>
                   
-                  {selectedTask.timeline.sentAt && (
+                  {selectedTask.updated_at && selectedTask.updated_at !== selectedTask.created_at && (
                     <div className="flex items-start">
                       <div className="flex-shrink-0 h-5 w-5 flex items-center justify-center mt-0.5">
                         <Clock className="h-4 w-4 text-vira-primary" />
                       </div>
                       <div className="ml-3">
-                        <p className="text-sm font-medium">Assigned</p>
+                        <p className="text-sm font-medium">Updated</p>
                         <p className="text-xs text-gray-500">
-                          {formatTimestamp(selectedTask.timeline.sentAt)}
+                          {formatTimestamp(selectedTask.updated_at)}
                         </p>
                       </div>
                     </div>
                   )}
                   
-                  {selectedTask.timeline.completedAt && (
+                  {selectedTask.completed_at && (
                     <div className="flex items-start">
                       <div className="flex-shrink-0 h-5 w-5 flex items-center justify-center mt-0.5">
                         <CheckCircle className="h-4 w-4 text-green-500" />
@@ -362,7 +346,7 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                       <div className="ml-3">
                         <p className="text-sm font-medium">Completed</p>
                         <p className="text-xs text-gray-500">
-                          {formatTimestamp(selectedTask.timeline.completedAt)}
+                          {formatTimestamp(selectedTask.completed_at)}
                         </p>
                       </div>
                     </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Task } from '@/components/tasks/TaskTable';
+import { Task } from '@/lib/api';
 import { api } from '@/lib/api';
 
 export function useTasks() {
@@ -65,7 +65,7 @@ export function useTasks() {
   // Get tasks due today
   const getTasksDueToday = () => {
     const today = new Date().toISOString().split('T')[0];
-    return tasks.filter((task) => task.dueDate === today);
+    return tasks.filter((task) => task.due_date === today);
   };
 
   // Get tasks due this week
@@ -75,14 +75,14 @@ export function useTasks() {
     weekLater.setDate(today.getDate() + 7);
 
     return tasks.filter((task) => {
-      const taskDate = new Date(task.dueDate);
+      const taskDate = new Date(task.due_date || '');
       return taskDate >= today && taskDate <= weekLater;
     });
   };
 
   // Get tasks by assignee
   const getTasksByAssignee = (assignee: string) => {
-    return tasks.filter((task) => task.assignedTo === assignee);
+    return tasks.filter((task) => task.assignee?.name === assignee);
   };
 
   return {

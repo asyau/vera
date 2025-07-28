@@ -104,6 +104,41 @@ async def team_chat_respond(request: TeamChatMessageRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"OpenAI API error: {str(e)}")
 
+@router.post("/ai/team-chat-respond", response_model=MessageResponse)
+async def team_chat_respond(request: dict):
+    """Process team chat messages and generate AI response"""
+    try:
+        messages = request.get("messages", [])
+        
+        # Format the messages for processing
+        messages_for_context = []
+        for msg in messages:
+            role = "user"
+            if msg.get("role") == "assistant":
+                role = "assistant"
+                
+            messages_for_context.append({
+                "role": role,
+                "content": msg.get("content", "")
+            })
+        
+        # Get AI response
+        ai_response = await get_completion(
+            prompt="",  # No additional prompt needed
+            messages=messages_for_context
+        )
+        
+        # Create and return the AI response
+        return MessageResponse(
+            id=str(uuid.uuid4()),
+            content=ai_response,
+            type="ai",
+            name="Vira",
+            timestamp=datetime.now().isoformat()
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"OpenAI API error: {str(e)}")
+
 @router.post("/ai/summarize", response_model=str)
 async def summarize_conversation(request: SummaryRequest):
     """Summarize a conversation"""

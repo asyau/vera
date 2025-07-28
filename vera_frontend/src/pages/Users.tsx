@@ -31,7 +31,7 @@ const Users = () => {
     try {
       setLoading(true);
       const data = await api.getUsers();
-      setUsers(data);
+      setUsers(data.users);
     } catch (error) {
       toast({
         title: "Error",
@@ -51,7 +51,7 @@ const Users = () => {
       filtered = filtered.filter(user =>
         user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (user.team_name && user.team_name.toLowerCase().includes(searchTerm.toLowerCase()))
+        (user.team?.name && user.team.name.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
@@ -62,7 +62,7 @@ const Users = () => {
 
     // Team filter
     if (teamFilter !== 'all') {
-      filtered = filtered.filter(user => user.team_name === teamFilter);
+      filtered = filtered.filter(user => user.team?.name === teamFilter);
     }
 
     setFilteredUsers(filtered);
@@ -80,7 +80,7 @@ const Users = () => {
   };
 
   const getUniqueTeams = () => {
-    const teams = users.map(user => user.team_name).filter(Boolean);
+    const teams = users.map(user => user.team?.name).filter(Boolean);
     return [...new Set(teams)];
   };
 
@@ -258,8 +258,8 @@ const Users = () => {
                         {user.role.charAt(0).toUpperCase() + user.role.slice(1)}
                       </Badge>
                     </TableCell>
-                    <TableCell>{user.team_name || 'No team'}</TableCell>
-                    <TableCell>{user.company_name || 'No company'}</TableCell>
+                    <TableCell>{user.team?.name || 'No team'}</TableCell>
+                    <TableCell>{user.company?.name || 'No company'}</TableCell>
                   </TableRow>
                 ))
               )}
