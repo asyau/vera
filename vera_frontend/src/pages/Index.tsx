@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import Navbar from '@/components/layout/Navbar';
 import ChatPanel from '@/components/chat/ChatPanel';
 import TaskTable from '@/components/tasks/TaskTable';
-import TriChatPanel from '@/components/trichat/TriChatPanel';
-import ChatSidebar from '@/components/layout/ChatSidebar';
-import ViewNavigation from '@/components/layout/ViewNavigation';
+import TeamChatPanel from '@/components/messaging/TeamChatPanel';
+import CollapsibleSidebar from '@/components/layout/CollapsibleSidebar';
+import TeamDashboard from '@/components/dashboard/TeamDashboard';
 import { SessionProvider, useSession } from '@/contexts/SessionContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 // Type for view modes
-type ViewMode = 'chat' | 'tasks' | 'trichat';
+type ViewMode = 'chat' | 'tasks' | 'messaging' | 'team-dashboard';
 
 // Layout wrapper component
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
@@ -24,14 +25,14 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
 // Main content component
 const MainContent = () => {
-  const [showBriefing, setShowBriefing] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('chat');
-  const [showTaskPanel, setShowTaskPanel] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    const saved = localStorage.getItem('sidebarOpen');
+    return saved ? JSON.parse(saved) : true;
+  });
   const { sessions, currentSession, setCurrentSession, createNewSession } = useSession();
-  
-  const toggleTaskPanel = () => {
-    setShowTaskPanel(prev => !prev);
-  };
+  const { hasRole } = useAuth();
+  const isSupervisor = hasRole('supervisor');
   
   const handleSessionSelect = (sessionId: string) => {
     setCurrentSession(sessionId);
@@ -41,64 +42,62 @@ const MainContent = () => {
     createNewSession();
   };
   
+  const handleViewModeChange = (mode: ViewMode) => {
+    setViewMode(mode);
+  };
+  
+  const handleSidebarToggle = () => {
+    const newState = !sidebarOpen;
+    setSidebarOpen(newState);
+    localStorage.setItem('sidebarOpen', JSON.stringify(newState));
+  };
+  
   return (
     <div className="flex w-full h-full overflow-hidden">
-      {/* Only show sidebar in chat mode */}
-      {viewMode === 'chat' && (
-        <ChatSidebar 
-          sessions={sessions.map(s => ({ 
-            ...s, 
-            isActive: s.id === currentSession?.id 
-          }))}
-          onSessionSelect={handleSessionSelect}
-          onNewSession={handleNewSession}
-        />
-      )}
+      {/* Collapsible Sidebar */}
+      <CollapsibleSidebar
+        isOpen={sidebarOpen}
+        onToggle={handleSidebarToggle}
+        viewMode={viewMode}
+        onViewModeChange={handleViewModeChange}
+        chatSessions={sessions.map(s => ({ 
+          ...s, 
+          isActive: s.id === currentSession?.id 
+        }))}
+        onSessionSelect={handleSessionSelect}
+        onNewSession={handleNewSession}
+        isSupervisor={isSupervisor}
+      />
       
-      <div className="flex flex-col flex-1 h-full overflow-hidden animate-in fade-in-0 slide-in-from-right-2 duration-300">
-        <ViewNavigation
-          viewMode={viewMode}
-          onViewModeChange={(mode) => {
-            setViewMode(mode);
-            if (mode === 'chat') {
-              setShowTaskPanel(false);
-            }
-          }}
-          showTaskPanel={showTaskPanel}
-          onToggleTaskPanel={toggleTaskPanel}
-        />
+      {/* Main Content Area */}
+      <div className="flex-1 h-full overflow-hidden">
+        {/* Chat view */}
+        {viewMode === 'chat' && (
+          <div className="h-full">
+            <ChatPanel />
+          </div>
+        )}
         
-        <div className="flex flex-1 overflow-hidden">
-          {/* Chat area - always shown in chat mode */}
-          {viewMode === 'chat' && (
-            <div className={`${showTaskPanel ? 'w-1/2' : 'w-full'} h-full overflow-hidden`}>
-              <div className="h-full">
-                <ChatPanel />
-              </div>
-            </div>
-          )}
-          
-          {/* Task panel - shown in chat mode when toggled */}
-          {viewMode === 'chat' && showTaskPanel && (
-            <div className="w-1/2 h-full border-l border-gray-200 overflow-hidden">
-              <TaskTable />
-            </div>
-          )}
-          
-          {/* Full-screen task view - shown in tasks mode */}
-          {viewMode === 'tasks' && (
-            <div className="w-full h-full overflow-hidden">
-              <TaskTable fullScreen={true} />
-            </div>
-          )}
-          
-          {/* TriChat view - shown in trichat mode */}
-          {viewMode === 'trichat' && (
-            <div className="w-full h-full overflow-hidden">
-              <TriChatPanel />
-            </div>
-          )}
-        </div>
+        {/* Tasks view */}
+        {viewMode === 'tasks' && (
+          <div className="h-full">
+            <TaskTable fullScreen={true} />
+          </div>
+        )}
+        
+        {/* Messaging view */}
+        {viewMode === 'messaging' && (
+          <div className="h-full">
+            <TeamChatPanel />
+          </div>
+        )}
+
+        {/* Team Dashboard view */}
+        {viewMode === 'team-dashboard' && (
+          <div className="h-full">
+            <TeamDashboard />
+          </div>
+        )}
       </div>
     </div>
   );

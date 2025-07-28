@@ -417,6 +417,7 @@ export const api = {
     return response.json();
   },
 
+
   async updateCompany(id: string, data: CompanyUpdate): Promise<Company> {
     const response = await fetch(`${API_BASE_URL}/companies/${id}`, {
       method: 'PUT',
@@ -427,18 +428,22 @@ export const api = {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to update company');
+
     }
     return response.json();
   },
+
 
   async deleteCompany(id: string): Promise<void> {
     const response = await fetch(`${API_BASE_URL}/companies/${id}`, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
+
       mode: 'cors',
     });
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+
       throw new Error(errorData.detail || 'Failed to delete company');
     }
   },
@@ -453,9 +458,11 @@ export const api = {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch projects');
+
     }
     return response.json();
   },
+
 
   async getProject(id: string): Promise<Project> {
     const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
@@ -466,12 +473,54 @@ export const api = {
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.detail || 'Failed to fetch project');
+
+  async sendMessage(conversationId: string, content: string, attachments?: Array<{ id: string; name: string; type: string; url: string }>) {
+    const response = await fetch(`${API_BASE_URL}/conversations/${conversationId}/messages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+      body: JSON.stringify({
+        conversation_id: conversationId,
+        content,
+        attachments
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to send message');
     }
     return response.json();
   },
 
+  async createConversation(type: 'direct' | 'group', participants: string[], name?: string) {
+    const response = await fetch(`${API_BASE_URL}/conversations`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      mode: 'cors',
+      body: JSON.stringify({
+        type,
+        participants,
+        name
+      }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.detail || 'Failed to create conversation');
+
+    }
+    return response.json();
+  },
+
+
   async createProject(data: ProjectCreate): Promise<Project> {
     const response = await fetch(`${API_BASE_URL}/projects`, {
+
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       mode: 'cors',
