@@ -3,8 +3,8 @@ import { MessageSquare, Clipboard, KanbanSquare, Users, Sparkles, Bot, Target, Z
 import { cn } from '@/lib/utils';
 
 interface ViewNavigationProps {
-  viewMode: 'chat' | 'tasks' | 'trichat';
-  onViewModeChange: (mode: 'chat' | 'tasks' | 'trichat') => void;
+  viewMode: 'chat' | 'tasks' | 'messaging';
+  onViewModeChange: (mode: 'chat' | 'tasks' | 'messaging') => void;
   showTaskPanel?: boolean;
   onToggleTaskPanel?: () => void;
 }
@@ -35,9 +35,9 @@ const ViewNavigation: React.FC<ViewNavigationProps> = ({
       borderColor: 'border-purple-200'
     },
     {
-      id: 'trichat' as const,
-      label: 'TriChat',
-      description: 'Multi-agent collaboration',
+      id: 'messaging' as const,
+      label: 'Messaging',
+      description: 'Multi-participant messaging with Vira AI',
       icon: Users,
       color: 'from-orange-500 to-red-600',
       bgColor: 'bg-gradient-to-r from-orange-50 to-red-50',
