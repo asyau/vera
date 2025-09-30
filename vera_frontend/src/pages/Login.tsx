@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/authStore';
 
 const loginSchema = z.object({
   email: z.string().email('Please enter a valid email address'),
@@ -21,7 +21,7 @@ type LoginFormData = z.infer<typeof loginSchema>;
 const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string>('');
-  const { login, isLoading } = useAuth();
+  const { login, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
   const {
@@ -36,6 +36,9 @@ const Login: React.FC = () => {
     try {
       setError('');
       await login(data.email, data.password);
+      // Navigate to the intended page or home page after successful login
+      const from = location.state?.from?.pathname || '/';
+      navigate(from, { replace: true });
     } catch (err: any) {
       setError(err.message);
     }
@@ -57,7 +60,7 @@ const Login: React.FC = () => {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input
@@ -130,4 +133,4 @@ const Login: React.FC = () => {
   );
 };
 
-export default Login; 
+export default Login;

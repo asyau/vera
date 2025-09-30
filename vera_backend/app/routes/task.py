@@ -1,243 +1,356 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
-from sqlalchemy.orm import Session, joinedload
-from typing import List
+"""
+Enhanced Task Management Routes using Service Layer pattern
+"""
 from datetime import datetime
-import uuid
-import logging
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-from app.models.sql_models import Task, User
-from app.models.pydantic_models import TaskCreate, TaskResponse, TaskUpdate
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.core.api_gateway import AuthenticationMiddleware
+from app.core.exceptions import ViraException
 from app.database import get_db
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from app.services.task_service import TaskService
 
 router = APIRouter()
 
-def get_user_id_by_name(db: Session, name: str) -> str:
-    """Get user ID by name. If user doesn't exist, create them."""
-    user = db.query(User).filter(User.name == name).first()
-    if user:
-        return user.id
-    # Create new user if they don't exist
-    new_user = User(
-        id=uuid.uuid4(),
-        name=name,
-        email=f"{name.lower()}@company.com",
-        role="Employee",
-        company_id=uuid.uuid4()  # This should be properly set based on context
-    )
-    db.add(new_user)
-    db.commit()
-    db.refresh(new_user)
-    logger.info(f"Created new user: {name} with ID: {new_user.id}")
-    return new_user.id
 
-def task_to_response(task: Task) -> TaskResponse:
-    """Convert a Task model to TaskResponse."""
-    
-    # Get assignee user info
-    assignee_dict = None
-    if task.assignee:
-        assignee_dict = {
-            "id": task.assignee.id,
-            "name": task.assignee.name,
-            "email": task.assignee.email,
-            "role": task.assignee.role,
-            "company_id": task.assignee.company_id,
-            "team_id": task.assignee.team_id,
-            "project_id": task.assignee.project_id,
-            "created_at": task.assignee.created_at,
-            "preferences": task.assignee.preferences
-        }
-    
-    # Get creator user info
-    creator_dict = None
-    if task.creator:
-        creator_dict = {
-            "id": task.creator.id,
-            "name": task.creator.name,
-            "email": task.creator.email,
-            "role": task.creator.role,
-            "company_id": task.creator.company_id,
-            "team_id": task.creator.team_id,
-            "project_id": task.creator.project_id,
-            "created_at": task.creator.created_at,
-            "preferences": task.creator.preferences
-        }
-    
-    # Get project info
-    project_dict = None
-    if task.project:
-        project_dict = {
-            "id": task.project.id,
-            "name": task.project.name,
-            "description": task.project.description,
-            "company_id": task.project.company_id,
-            "created_at": task.project.created_at
-        }
-    
-    task_dict = {
-        "id": task.id,
-        "name": task.name,
-        "description": task.description,
-        "status": task.status,
-        "assigned_to": task.assigned_to,
-        "due_date": task.due_date,
-        "created_by": task.created_by,
-        "original_prompt": task.original_prompt,
-        "project_id": task.project_id,
-        "conversation_id": task.conversation_id,
-        "created_at": task.created_at,
-        "updated_at": task.updated_at,
-        "completed_at": task.completed_at,
-        "priority": task.priority,
-        "assignee": assignee_dict,
-        "creator": creator_dict,
-        "project": project_dict
-    }
-    return TaskResponse(**task_dict)
+# Request/Response Models
+class TaskCreateRequest(BaseModel):
+    title: str
+    description: str
+    assignee_id: Optional[UUID] = None
+    project_id: Optional[UUID] = None
+    due_date: Optional[datetime] = None
+    priority: str = "medium"
+    tags: Optional[List[str]] = None
 
-@router.get("/tasks", response_model=List[TaskResponse])
-async def get_tasks(db: Session = Depends(get_db)):
-    """Get all tasks."""
+
+class TaskUpdateRequest(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    assignee_id: Optional[UUID] = None
+    project_id: Optional[UUID] = None
+    due_date: Optional[datetime] = None
+    priority: Optional[str] = None
+    status: Optional[str] = None
+    tags: Optional[List[str]] = None
+
+
+class TaskResponse(BaseModel):
+    id: UUID
+    title: str
+    description: str
+    creator_id: UUID
+    assignee_id: Optional[UUID]
+    project_id: Optional[UUID]
+    status: str
+    priority: str
+    due_date: Optional[datetime]
+    completed_at: Optional[datetime]
+    tags: List[str]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class TaskAnalyticsResponse(BaseModel):
+    total_tasks: int
+    completed_tasks: int
+    completion_rate: float
+    overdue_tasks: int
+    upcoming_tasks: int
+    status_breakdown: Dict[str, int]
+
+
+# Routes
+@router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
+async def create_task(
+    request: TaskCreateRequest,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Create a new task"""
     try:
-        # Query tasks with related information
-        tasks = db.query(Task).options(
-            joinedload(Task.assignee),
-            joinedload(Task.creator),
-            joinedload(Task.project)
-        ).all()
-        return [task_to_response(task) for task in tasks]
-    except Exception as e:
-        logger.error(f"Error fetching tasks: {str(e)}")
-        return []
+        task_service = TaskService(db)
 
-@router.post("/tasks", response_model=TaskResponse)
-async def create_task(request: Request, task_info: TaskCreate, db: Session = Depends(get_db)):
-    """Create a new task."""
-    print(f"Received task creation request: {task_info.dict()}")
-    try:
-        # Log the incoming request data
-        logger.info(f"Received task creation request: {task_info.dict()}")
-        
-        # Handle assigned_to field
-        assigned_to = task_info.assigned_to
-        
-        # Create task
-        task = Task(
-            id=uuid.uuid4(),
-            name=task_info.name,
-            description=task_info.description,
-            status=task_info.status,
-            assigned_to=assigned_to,
-            due_date=task_info.due_date,
-            created_by=task_info.created_by,
-            original_prompt=task_info.original_prompt,
-            project_id=task_info.project_id,
-            conversation_id=task_info.conversation_id,
-            priority=task_info.priority
+        task = task_service.create_task(
+            title=request.title,
+            description=request.description,
+            creator_id=UUID(current_user_id),
+            assignee_id=request.assignee_id,
+            project_id=request.project_id,
+            due_date=request.due_date,
+            priority=request.priority,
+            tags=request.tags,
         )
-        
-        db.add(task)
-        db.commit()
-        db.refresh(task)
-        
-        # Load related data for response
-        db.refresh(task)
-        task = db.query(Task).options(
-            joinedload(Task.assignee),
-            joinedload(Task.creator),
-            joinedload(Task.project)
-        ).filter(Task.id == task.id).first()
-        
-        logger.info(f"Created task: {task.name} with ID: {task.id}")
-        return task_to_response(task)
-        
-    except Exception as e:
-        logger.error(f"Error creating task: {str(e)}")
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error creating task: {str(e)}")
 
-@router.get("/tasks/{task_id}", response_model=TaskResponse)
-async def get_task(task_id: str, db: Session = Depends(get_db)):
-    """Get a specific task by ID."""
-    try:
-        task = db.query(Task).options(
-            joinedload(Task.assignee),
-            joinedload(Task.creator),
-            joinedload(Task.project)
-        ).filter(Task.id == uuid.UUID(task_id)).first()
-        
-        if not task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        
-        return task_to_response(task)
-    except Exception as e:
-        logger.error(f"Error fetching task {task_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching task: {str(e)}")
+        return TaskResponse.from_orm(task)
 
-@router.put("/tasks/{task_id}", response_model=TaskResponse)
-async def update_task(task_id: str, task_update: TaskUpdate, db: Session = Depends(get_db)):
-    """Update a task."""
-    try:
-        task = db.query(Task).filter(Task.id == uuid.UUID(task_id)).first()
-        
-        if not task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        
-        # Update fields if provided
-        if task_update.name is not None:
-            task.name = task_update.name
-        if task_update.description is not None:
-            task.description = task_update.description
-        if task_update.status is not None:
-            task.status = task_update.status
-        if task_update.assigned_to is not None:
-            task.assigned_to = task_update.assigned_to
-        if task_update.due_date is not None:
-            task.due_date = task_update.due_date
-        if task_update.priority is not None:
-            task.priority = task_update.priority
-        if task_update.completed_at is not None:
-            task.completed_at = task_update.completed_at
-        
-        # Update the updated_at timestamp
-        task.updated_at = datetime.utcnow()
-        
-        db.commit()
-        db.refresh(task)
-        
-        # Load related data for response
-        task = db.query(Task).options(
-            joinedload(Task.assignee),
-            joinedload(Task.creator),
-            joinedload(Task.project)
-        ).filter(Task.id == task.id).first()
-        
-        return task_to_response(task)
-        
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
     except Exception as e:
-        logger.error(f"Error updating task {task_id}: {str(e)}")
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error updating task: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create task: {str(e)}")
 
-@router.delete("/tasks/{task_id}")
-async def delete_task(task_id: str, db: Session = Depends(get_db)):
-    """Delete a task."""
+
+@router.get("/", response_model=List[TaskResponse])
+async def get_tasks(
+    status_filter: Optional[str] = Query(None, description="Filter by task status"),
+    include_created: bool = Query(True, description="Include tasks created by user"),
+    include_assigned: bool = Query(True, description="Include tasks assigned to user"),
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Get tasks for the current user"""
     try:
-        task = db.query(Task).filter(Task.id == uuid.UUID(task_id)).first()
-        
-        if not task:
-            raise HTTPException(status_code=404, detail="Task not found")
-        
-        db.delete(task)
-        db.commit()
-        
-        return {"message": "Task deleted successfully"}
-        
+        task_service = TaskService(db)
+
+        tasks = task_service.get_user_tasks(
+            user_id=UUID(current_user_id),
+            status_filter=status_filter,
+            include_created=include_created,
+            include_assigned=include_assigned,
+        )
+
+        return [TaskResponse.from_orm(task) for task in tasks]
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
     except Exception as e:
-        logger.error(f"Error deleting task {task_id}: {str(e)}")
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error deleting task: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Failed to get tasks: {str(e)}")
+
+
+@router.get("/{task_id}", response_model=TaskResponse)
+async def get_task(
+    task_id: UUID,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Get a specific task"""
+    try:
+        task_service = TaskService(db)
+        task = task_service.repository.get_or_raise(task_id)
+
+        return TaskResponse.from_orm(task)
+
+    except ViraException as e:
+        raise HTTPException(
+            status_code=404 if "not found" in e.message.lower() else 400,
+            detail=e.message,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get task: {str(e)}")
+
+
+@router.put("/{task_id}", response_model=TaskResponse)
+async def update_task(
+    task_id: UUID,
+    request: TaskUpdateRequest,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Update a task"""
+    try:
+        task_service = TaskService(db)
+
+        # Filter out None values
+        update_data = {k: v for k, v in request.dict().items() if v is not None}
+
+        task = task_service.update_task(
+            task_id=task_id, update_data=update_data, requester_id=UUID(current_user_id)
+        )
+
+        return TaskResponse.from_orm(task)
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update task: {str(e)}")
+
+
+@router.post("/{task_id}/assign", response_model=TaskResponse)
+async def assign_task(
+    task_id: UUID,
+    assignee_id: UUID,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Assign a task to a user"""
+    try:
+        task_service = TaskService(db)
+
+        task = task_service.assign_task(
+            task_id=task_id, assignee_id=assignee_id, requester_id=UUID(current_user_id)
+        )
+
+        return TaskResponse.from_orm(task)
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to assign task: {str(e)}")
+
+
+@router.post("/{task_id}/complete", response_model=TaskResponse)
+async def complete_task(
+    task_id: UUID,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Mark a task as completed"""
+    try:
+        task_service = TaskService(db)
+
+        task = task_service.complete_task(
+            task_id=task_id, requester_id=UUID(current_user_id)
+        )
+
+        return TaskResponse.from_orm(task)
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to complete task: {str(e)}"
+        )
+
+
+@router.get("/overdue/list", response_model=List[TaskResponse])
+async def get_overdue_tasks(
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Get overdue tasks for the current user"""
+    try:
+        task_service = TaskService(db)
+
+        tasks = task_service.get_overdue_tasks(user_id=UUID(current_user_id))
+
+        return [TaskResponse.from_orm(task) for task in tasks]
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get overdue tasks: {str(e)}"
+        )
+
+
+@router.get("/upcoming/list", response_model=List[TaskResponse])
+async def get_upcoming_tasks(
+    days: int = Query(7, description="Number of days to look ahead"),
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Get upcoming tasks for the current user"""
+    try:
+        task_service = TaskService(db)
+
+        tasks = task_service.get_upcoming_tasks(
+            user_id=UUID(current_user_id), days=days
+        )
+
+        return [TaskResponse.from_orm(task) for task in tasks]
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get upcoming tasks: {str(e)}"
+        )
+
+
+@router.get("/search/query", response_model=List[TaskResponse])
+async def search_tasks(
+    q: str = Query(..., description="Search query"),
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Search tasks by title or description"""
+    try:
+        task_service = TaskService(db)
+
+        tasks = task_service.search_tasks(query=q, user_id=UUID(current_user_id))
+
+        return [TaskResponse.from_orm(task) for task in tasks]
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to search tasks: {str(e)}")
+
+
+@router.get("/analytics/summary", response_model=TaskAnalyticsResponse)
+async def get_task_analytics(
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Get task analytics for the current user"""
+    try:
+        task_service = TaskService(db)
+
+        analytics = task_service.get_task_analytics(user_id=UUID(current_user_id))
+
+        return TaskAnalyticsResponse(**analytics)
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get task analytics: {str(e)}"
+        )
+
+
+# Supervisor-only routes
+@router.get("/team/{team_id}", response_model=List[TaskResponse])
+async def get_team_tasks(
+    team_id: UUID,
+    current_user_token: dict = Depends(
+        AuthenticationMiddleware.require_role("supervisor")
+    ),
+    db: Session = Depends(get_db),
+):
+    """Get all tasks for a team (supervisor only)"""
+    try:
+        task_service = TaskService(db)
+
+        # Get all team members and their tasks
+        team_tasks = task_service.repository.get_by_filters(team_id=str(team_id))
+
+        return [TaskResponse.from_orm(task) for task in team_tasks]
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get team tasks: {str(e)}"
+        )
+
+
+@router.delete("/{task_id}")
+async def delete_task(
+    task_id: UUID,
+    current_user_token: dict = Depends(
+        AuthenticationMiddleware.require_any_role(["supervisor", "admin"])
+    ),
+    db: Session = Depends(get_db),
+):
+    """Delete a task (supervisor/admin only)"""
+    try:
+        task_service = TaskService(db)
+
+        success = task_service.repository.delete(task_id)
+
+        if success:
+            return {"message": "Task deleted successfully"}
+        else:
+            raise HTTPException(status_code=404, detail="Task not found")
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to delete task: {str(e)}")

@@ -29,7 +29,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
   const [aiExplanation, setAiExplanation] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const elevenLabsService = ElevenLabsService.getInstance();
-  
+
   const [briefingData] = useState({
     date: today,
     completedTasks: [
@@ -88,13 +88,13 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
       }
     ]
   });
-  
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return '';
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
-  
+
   useEffect(() => {
     // Clean up audio URL when component unmounts
     return () => {
@@ -136,7 +136,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
       return data.explanation;
     } catch (error) {
       console.error('Error getting AI explanation:', error);
-      const fallbackExplanation = `Today, ${briefingData.completedTasks.length} tasks have been completed, including ${briefingData.completedTasks.map(t => t.name).join(', ')}. 
+      const fallbackExplanation = `Today, ${briefingData.completedTasks.length} tasks have been completed, including ${briefingData.completedTasks.map(t => t.name).join(', ')}.
       There ${briefingData.delayedTasks.length === 1 ? 'is' : 'are'} ${briefingData.delayedTasks.length} delayed task${briefingData.delayedTasks.length === 1 ? '' : 's'}, such as ${briefingData.delayedTasks.map(t => t.name).join(', ')}.
       Looking ahead, you have ${briefingData.upcomingTasks.length} upcoming task${briefingData.upcomingTasks.length === 1 ? '' : 's'} and ${briefingData.tomorrowTasks.length} task${briefingData.tomorrowTasks.length === 1 ? '' : 's'} due tomorrow.`;
       setAiExplanation(fallbackExplanation);
@@ -161,7 +161,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
     try {
       setIsSpeaking(true);
       setIsLoading(true);
-      
+
       // Get AI explanation if we don't have one
       let textToSpeak = aiExplanation;
       if (!textToSpeak) {
@@ -171,12 +171,12 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
       if (textToSpeak) {
         // Get audio URL from ElevenLabs
         const audioUrl = await elevenLabsService.textToSpeech(textToSpeak);
-        
+
         // Create audio element if it doesn't exist
         if (!audioRef.current) {
           audioRef.current = new Audio();
         }
-        
+
         // Set up audio element
         audioRef.current.src = audioUrl;
         audioRef.current.onended = () => {
@@ -188,7 +188,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
           setIsSpeaking(false);
           URL.revokeObjectURL(audioUrl);
         };
-        
+
         // Play the audio
         await audioRef.current.play();
       }
@@ -213,7 +213,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
           return null;
       }
     };
-    
+
     return (
       <div className="flex items-center space-x-3 py-2">
         <div className="flex-shrink-0">
@@ -231,7 +231,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
       </div>
     );
   };
-  
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-md h-[90vh] flex flex-col">
@@ -259,7 +259,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
             Your summary for {briefingData.date}
           </DialogDescription>
         </DialogHeader>
-        
+
         <ScrollArea className="flex-1 mt-2">
           <div className="space-y-4 pr-4">
             {briefingData.completedTasks.length > 0 && (
@@ -274,7 +274,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
                 </div>
               </div>
             )}
-            
+
             {briefingData.delayedTasks.length > 0 && (
               <>
                 <Separator />
@@ -290,7 +290,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
                 </div>
               </>
             )}
-            
+
             {briefingData.tomorrowTasks.length > 0 && (
               <>
                 <Separator />
@@ -306,7 +306,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
                 </div>
               </>
             )}
-            
+
             {briefingData.upcomingTasks.length > 0 && (
               <>
                 <Separator />
@@ -322,9 +322,9 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
                 </div>
               </>
             )}
-            
+
             <Separator />
-            
+
             <div className="bg-vira-light p-4 rounded-md border border-vira-primary/20">
               <div className="flex items-center justify-between mb-2">
                 <h3 className="text-sm font-semibold text-vira-primary">
@@ -372,7 +372,7 @@ const DailyBriefing: React.FC<{ open: boolean; onClose: () => void }> = ({ open,
             </div>
           </div>
         </ScrollArea>
-        
+
         <DialogFooter className="flex-shrink-0 mt-4">
           <Button variant="outline" onClick={onClose}>Close</Button>
           <Button onClick={onClose}>View All Tasks</Button>

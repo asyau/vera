@@ -1,0 +1,8 @@
+{
+    "python.pythonPath": "./vera_backend/venv/bin/python",
+    "python.defaultInterpreterPath": "./vera_backend/venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.linting.enabled": false,
+    "python.analysis.typeCheckingMode": "off",
+    "kiroAgent.configureMCP": "Disabled"
+}

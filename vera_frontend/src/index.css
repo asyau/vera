@@ -61,23 +61,23 @@
   .chat-bubble {
     @apply p-3 rounded-2xl max-w-[80%] mb-2;
   }
-  
+
   .user-bubble {
     @apply chat-bubble bg-vira-primary text-white ml-auto rounded-tr-none;
   }
-  
+
   .ai-bubble {
     @apply chat-bubble bg-gray-200 text-gray-800 mr-auto rounded-tl-none;
   }
-  
+
   .employee-bubble {
     @apply chat-bubble bg-vira-secondary text-white mr-auto rounded-tl-none;
   }
-  
+
   .task-card {
     @apply p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow duration-200;
   }
-  
+
   .status-pill {
     @apply text-xs font-medium px-2.5 py-0.5 rounded-full;
   }

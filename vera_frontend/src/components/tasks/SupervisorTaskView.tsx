@@ -4,28 +4,30 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Calendar, Clock, User, CheckCircle, Circle, AlertCircle, Plus, Filter } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/authStore';
 import { useTasks } from '@/hooks/use-tasks';
+import { useUsers } from '@/hooks/use-users';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 
 const SupervisorTaskView: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const { tasks, loading, error } = useTasks();
+  const { getUserName } = useUsers();
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [assigneeFilter, setAssigneeFilter] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState<string>('');
 
-  // Get unique assignees for filtering
-  const assignees = [...new Set(tasks.map(task => task.assignedToName))];
+  // Get unique assignee names for filtering
+  const assignees = [...new Set(tasks.map(task => task.assigned_to).filter(Boolean).map(id => getUserName(id)))];
 
   // Filter tasks based on selected filters
   const filteredTasks = tasks.filter(task => {
     const matchesStatus = statusFilter === 'all' || task.status === statusFilter;
-    const matchesAssignee = assigneeFilter === 'all' || task.assignedToName === assigneeFilter;
+    const matchesAssignee = assigneeFilter === 'all' || getUserName(task.assigned_to) === assigneeFilter;
     const matchesSearch = task.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          task.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
+
     return matchesStatus && matchesAssignee && matchesSearch;
   });
 
@@ -33,9 +35,11 @@ const SupervisorTaskView: React.FC = () => {
     switch (status) {
       case 'completed':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'in-progress':
+      case 'in_progress':
         return <Circle className="h-4 w-4 text-blue-500" />;
-      case 'pending':
+      case 'assigned':
+        return <Circle className="h-4 w-4 text-purple-500" />;
+      case 'todo':
         return <AlertCircle className="h-4 w-4 text-yellow-500" />;
       case 'cancelled':
         return <AlertCircle className="h-4 w-4 text-red-500" />;
@@ -48,9 +52,11 @@ const SupervisorTaskView: React.FC = () => {
     switch (status) {
       case 'completed':
         return 'bg-green-100 text-green-800';
-      case 'in-progress':
+      case 'in_progress':
         return 'bg-blue-100 text-blue-800';
-      case 'pending':
+      case 'assigned':
+        return 'bg-purple-100 text-purple-800';
+      case 'todo':
         return 'bg-yellow-100 text-yellow-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
@@ -63,9 +69,11 @@ const SupervisorTaskView: React.FC = () => {
     switch (status) {
       case 'completed':
         return 100;
-      case 'in-progress':
+      case 'in_progress':
         return 50;
-      case 'pending':
+      case 'assigned':
+        return 25;
+      case 'todo':
         return 0;
       case 'cancelled':
         return 0;
@@ -125,8 +133,8 @@ const SupervisorTaskView: React.FC = () => {
           <CardContent className="p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-yellow-600">{getStatusCount('pending')}</p>
+                <p className="text-sm font-medium text-gray-600">To Do</p>
+                <p className="text-2xl font-bold text-yellow-600">{getStatusCount('todo')}</p>
               </div>
               <AlertCircle className="h-8 w-8 text-yellow-500" />
             </div>
@@ -137,7 +145,7 @@ const SupervisorTaskView: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">In Progress</p>
-                <p className="text-2xl font-bold text-blue-600">{getStatusCount('in-progress')}</p>
+                <p className="text-2xl font-bold text-blue-600">{getStatusCount('in_progress')}</p>
               </div>
               <Circle className="h-8 w-8 text-blue-500" />
             </div>
@@ -193,8 +201,9 @@ const SupervisorTaskView: React.FC = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in-progress">In Progress</SelectItem>
+                  <SelectItem value="todo">To Do</SelectItem>
+                  <SelectItem value="assigned">Assigned</SelectItem>
+                  <SelectItem value="in_progress">In Progress</SelectItem>
                   <SelectItem value="completed">Completed</SelectItem>
                   <SelectItem value="cancelled">Cancelled</SelectItem>
                 </SelectContent>
@@ -261,25 +270,25 @@ const SupervisorTaskView: React.FC = () => {
                       <span>{getProgressValue(task.status)}%</span>
                     </div>
                     <Progress value={getProgressValue(task.status)} className="h-2" />
-                    
+
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center space-x-4 text-gray-600">
                         <div className="flex items-center space-x-1">
                           <User className="h-4 w-4" />
-                          <span>{task.assignedToName}</span>
+                          <span>{getUserName(task.assigned_to)}</span>
                         </div>
-                        {task.dueDate && (
+                        {task.due_date && (
                           <div className="flex items-center space-x-1">
                             <Calendar className="h-4 w-4" />
-                            <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                            <span>Due: {new Date(task.due_date).toLocaleDateString()}</span>
                           </div>
                         )}
                         <div className="flex items-center space-x-1">
                           <Clock className="h-4 w-4" />
-                          <span>Created: {new Date(task.timeline.createdAt).toLocaleDateString()}</span>
+                          <span>Created: {new Date(task.created_at).toLocaleDateString()}</span>
                         </div>
                       </div>
-                      
+
                       <div className="flex space-x-2">
                         <Button variant="outline" size="sm">
                           View Details
@@ -303,4 +312,4 @@ const SupervisorTaskView: React.FC = () => {
   );
 };
 
-export default SupervisorTaskView; 
+export default SupervisorTaskView;

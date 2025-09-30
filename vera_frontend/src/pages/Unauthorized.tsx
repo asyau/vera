@@ -38,4 +38,4 @@ const Unauthorized: React.FC = () => {
   );
 };
 
-export default Unauthorized; 
+export default Unauthorized;

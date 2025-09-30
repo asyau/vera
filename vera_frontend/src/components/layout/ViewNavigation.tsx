@@ -52,7 +52,7 @@ const ViewNavigation: React.FC<ViewNavigationProps> = ({
           {navigationItems.map((item) => {
             const Icon = item.icon;
             const isActive = viewMode === item.id;
-            
+
             return (
               <button
                 key={item.id}
@@ -60,29 +60,29 @@ const ViewNavigation: React.FC<ViewNavigationProps> = ({
                 className={cn(
                   "relative group flex items-center space-x-2 px-3 py-1.5 rounded-lg transition-all duration-200 ease-in-out",
                   "hover:scale-102 hover:shadow-sm",
-                  isActive 
-                    ? `${item.bgColor} ${item.borderColor} border shadow-md` 
+                  isActive
+                    ? `${item.bgColor} ${item.borderColor} border shadow-md`
                     : "hover:bg-gray-50 border border-transparent"
                 )}
               >
                 <div className={cn(
                   "flex items-center justify-center w-6 h-6 rounded-md transition-all duration-200",
-                  isActive 
-                    ? `bg-gradient-to-r ${item.color} text-white shadow-sm` 
+                  isActive
+                    ? `bg-gradient-to-r ${item.color} text-white shadow-sm`
                     : "bg-gray-100 text-gray-600 group-hover:bg-gray-200"
                 )}>
                   <Icon className="w-3.5 h-3.5" />
                 </div>
-                
+
                 <span className={cn(
                   "text-sm font-medium transition-colors duration-200",
-                  isActive 
-                    ? `bg-gradient-to-r ${item.color} bg-clip-text text-transparent` 
+                  isActive
+                    ? `bg-gradient-to-r ${item.color} bg-clip-text text-transparent`
                     : "text-gray-700 group-hover:text-gray-900"
                 )}>
                   {item.label}
                 </span>
-                
+
                 {isActive && (
                   <div className={cn(
                     "absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1.5 h-1.5 rounded-full",
@@ -93,7 +93,7 @@ const ViewNavigation: React.FC<ViewNavigationProps> = ({
             );
           })}
         </div>
-        
+
         {/* Right side controls */}
         <div className="flex items-center space-x-2">
           {viewMode === 'chat' && onToggleTaskPanel && (
@@ -102,8 +102,8 @@ const ViewNavigation: React.FC<ViewNavigationProps> = ({
               className={cn(
                 "flex items-center space-x-1.5 px-2.5 py-1.5 rounded-md transition-all duration-200 text-xs font-medium",
                 "hover:bg-gray-50 hover:scale-102",
-                showTaskPanel 
-                  ? "bg-blue-50 text-blue-700 border border-blue-200" 
+                showTaskPanel
+                  ? "bg-blue-50 text-blue-700 border border-blue-200"
                   : "bg-gray-50 text-gray-600 border border-gray-200"
               )}
             >
@@ -111,7 +111,7 @@ const ViewNavigation: React.FC<ViewNavigationProps> = ({
               {showTaskPanel ? 'Hide Tasks' : 'Show Tasks'}
             </button>
           )}
-          
+
           {/* AI Status indicator */}
           <div className="flex items-center space-x-1.5 px-2.5 py-1.5 bg-gradient-to-r from-green-50 to-emerald-50 rounded-md border border-green-200">
             <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
@@ -123,4 +123,4 @@ const ViewNavigation: React.FC<ViewNavigationProps> = ({
   );
 };
 
-export default ViewNavigation; 
+export default ViewNavigation;
