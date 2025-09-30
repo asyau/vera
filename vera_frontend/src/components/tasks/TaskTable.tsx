@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useTasks } from '@/hooks/use-tasks';
-import { Task } from '@/lib/api';
+import { useUsers } from '@/hooks/use-users';
+import { Task } from '@/types/task';
 
 interface TaskTableProps {
   fullScreen?: boolean;
@@ -20,22 +21,23 @@ interface TaskTableProps {
 
 const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
   const { tasks, loading, error } = useTasks();
+  const { getUserName } = useUsers();
   const [activeFilter, setActiveFilter] = useState('all');
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [viewType, setViewType] = useState<'table' | 'kanban'>('table');
   const [assigneeFilter, setAssigneeFilter] = useState<string | null>(null);
-  
+
   // Format date to display in a user-friendly format
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
-  
+
   // Filter tasks based on active filter
   const filteredTasks = tasks.filter(task => {
     let passesTimeFilter = true;
     let passesAssigneeFilter = true;
-    
+
     // Apply time filter
     if (activeFilter === 'today') {
       const today = new Date().toISOString().split('T')[0];
@@ -47,34 +49,34 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
       const taskDate = new Date(task.due_date || '');
       passesTimeFilter = taskDate >= today && taskDate <= weekLater;
     }
-    
+
     // Apply assignee filter
     if (assigneeFilter) {
-      passesAssigneeFilter = task.assignee?.name === assigneeFilter;
+              passesAssigneeFilter = getUserName(task.assigned_to) === assigneeFilter;
     }
-    
+
     return passesTimeFilter && passesAssigneeFilter;
   });
-  
-  // Get unique assignees for filtering
-  const assignees = [...new Set(tasks.map(task => task.assignee?.name).filter(Boolean))];
-  
+
+  // Get unique assignee names for filtering
+  const assignees = [...new Set(tasks.map(task => task.assigned_to).filter(Boolean).map(id => getUserName(id)))];
+
   const handleTaskClick = (task: Task) => {
     setSelectedTask(task);
   };
-  
+
   const closeTaskDialog = () => {
     setSelectedTask(null);
   };
-  
+
   // Format timestamp for timeline display
   const formatTimestamp = (timestamp?: string) => {
     if (!timestamp) return '';
     const date = new Date(timestamp);
-    return date.toLocaleString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      hour: 'numeric', 
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
       minute: '2-digit',
       hour12: true
     });
@@ -82,12 +84,12 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
 
   // Group tasks by status for kanban view
   const tasksByStatus = {
-    pending: filteredTasks.filter(task => task.status === 'pending'),
-    'in-progress': filteredTasks.filter(task => task.status === 'in-progress'),
+    todo: filteredTasks.filter(task => task.status === 'todo'),
+    'in_progress': filteredTasks.filter(task => task.status === 'in_progress'),
     completed: filteredTasks.filter(task => task.status === 'completed'),
     cancelled: filteredTasks.filter(task => task.status === 'cancelled')
   };
-  
+
   if (loading) {
     return (
       <div className="flex flex-col h-full rounded-lg bg-white shadow-sm border border-gray-100 p-4">
@@ -112,11 +114,11 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
     <div className="flex flex-col h-full rounded-lg bg-white shadow-sm border border-gray-100">
       <div className="p-4 border-b border-gray-100 flex justify-between items-center">
         <h2 className="text-lg font-semibold text-vira-dark">Task Dashboard</h2>
-        
+
         {fullScreen && (
           <div className="flex space-x-2">
-            <Button 
-              variant={viewType === 'table' ? "default" : "outline"} 
+            <Button
+              variant={viewType === 'table' ? "default" : "outline"}
               size="sm"
               onClick={() => setViewType('table')}
               className={viewType === 'table' ? "bg-vira-primary hover:bg-vira-primary/90" : ""}
@@ -124,8 +126,8 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
               <ListFilter className="h-4 w-4 mr-2" />
               Table View
             </Button>
-            <Button 
-              variant={viewType === 'kanban' ? "default" : "outline"} 
+            <Button
+              variant={viewType === 'kanban' ? "default" : "outline"}
               size="sm"
               onClick={() => setViewType('kanban')}
               className={viewType === 'kanban' ? "bg-vira-primary hover:bg-vira-primary/90" : ""}
@@ -136,36 +138,36 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
           </div>
         )}
       </div>
-      
+
       <div className="px-4 py-3 border-b border-gray-100">
         <Tabs defaultValue="all" className="w-full">
           <div className="flex items-center justify-between mb-2">
             <TabsList>
-              <TabsTrigger 
-                value="all" 
+              <TabsTrigger
+                value="all"
                 onClick={() => setActiveFilter('all')}
                 className="data-[state=active]:bg-vira-primary data-[state=active]:text-white"
               >
                 All
               </TabsTrigger>
-              <TabsTrigger 
-                value="today" 
+              <TabsTrigger
+                value="today"
                 onClick={() => setActiveFilter('today')}
                 className="data-[state=active]:bg-vira-primary data-[state=active]:text-white"
               >
                 Today
               </TabsTrigger>
-              <TabsTrigger 
-                value="week" 
+              <TabsTrigger
+                value="week"
                 onClick={() => setActiveFilter('week')}
                 className="data-[state=active]:bg-vira-primary data-[state=active]:text-white"
               >
                 This Week
               </TabsTrigger>
-              
+
               {fullScreen && (
                 <div className="ml-2">
-                  <select 
+                  <select
                     className="h-9 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm"
                     onChange={(e) => setAssigneeFilter(e.target.value || null)}
                     value={assigneeFilter || ''}
@@ -178,7 +180,7 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                 </div>
               )}
             </TabsList>
-            
+
             <Button variant="outline" size="sm" className="gap-1">
               <Filter className="h-4 w-4" />
               <span className="hidden sm:inline">Filter</span>
@@ -186,7 +188,7 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
           </div>
         </Tabs>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto">
         {viewType === 'table' ? (
           <div className="min-w-full divide-y divide-gray-200">
@@ -198,21 +200,21 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                 <div className="col-span-1">Status</div>
               </div>
             </div>
-            
+
             <div className="divide-y divide-gray-100 bg-white">
               {filteredTasks.length > 0 ? (
                 filteredTasks.map((task) => (
-                  <div 
-                    key={task.id} 
+                  <div
+                    key={task.id}
                     className="grid grid-cols-10 gap-2 px-4 py-3 hover:bg-gray-50 cursor-pointer"
                     onClick={() => handleTaskClick(task)}
                   >
                     <div className="col-span-5 font-medium text-gray-900 truncate">
-                      {task.name}
+                                              {task.name}
                     </div>
                     <div className="col-span-2 text-gray-500 flex items-center">
                       <User className="h-3 w-3 mr-1 text-gray-400" />
-                      <span className="truncate">{task.assignee?.name || 'Unassigned'}</span>
+                      <span className="truncate">{getUserName(task.assigned_to)}</span>
                     </div>
                     <div className="col-span-2 text-gray-500 flex items-center">
                       <Calendar className="h-3 w-3 mr-1 text-gray-400" />
@@ -241,7 +243,7 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                 </div>
                 <div className="flex-1 overflow-y-auto space-y-2">
                   {statusTasks.map(task => (
-                    <div 
+                    <div
                       key={task.id}
                       className="p-3 bg-white border border-gray-200 rounded-md shadow-sm hover:shadow cursor-pointer"
                       onClick={() => handleTaskClick(task)}
@@ -250,7 +252,7 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                       <div className="flex justify-between items-center text-xs text-gray-500">
                         <div className="flex items-center">
                           <User className="h-3 w-3 mr-1" />
-                          <span className="truncate max-w-[80px]">{task.assignee?.name || 'Unassigned'}</span>
+                          <span className="truncate max-w-[80px]">{getUserName(task.assigned_to)}</span>
                         </div>
                         <div>{task.due_date ? formatDate(task.due_date) : 'No due date'}</div>
                       </div>
@@ -267,23 +269,23 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
           </div>
         )}
       </div>
-      
+
       {/* Task Details Dialog */}
       <Dialog open={!!selectedTask} onOpenChange={closeTaskDialog}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>{selectedTask?.name}</DialogTitle>
+            <DialogTitle>{selectedTask?.title}</DialogTitle>
             <DialogDescription>
               Task details and progress updates
             </DialogDescription>
           </DialogHeader>
-          
+
           {selectedTask && (
             <div className="space-y-4 mt-2">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Assigned To</h4>
-                  <p className="mt-1">{selectedTask.assignee?.name || 'Unassigned'}</p>
+                  <p className="mt-1">{getUserName(selectedTask.assigned_to)}</p>
                 </div>
                 <div>
                   <h4 className="text-sm font-medium text-gray-500">Due Date</h4>
@@ -296,19 +298,19 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                   </div>
                 </div>
               </div>
-              
+
               <div>
                 <h4 className="text-sm font-medium text-gray-500">Description</h4>
                 <p className="mt-1 text-gray-700">{selectedTask.description}</p>
               </div>
-              
+
               <div>
                 <h4 className="text-sm font-medium text-gray-500">Original Prompt</h4>
                 <div className="mt-1 p-2 bg-gray-50 rounded-md text-gray-700 text-sm italic">
-                  "{selectedTask.original_prompt || 'No original prompt'}"
+                  "{selectedTask.description || 'No description'}"
                 </div>
               </div>
-              
+
               <div>
                 <h4 className="text-sm font-medium text-gray-500 mb-2">Timeline</h4>
                 <div className="space-y-2">
@@ -323,7 +325,7 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                       </p>
                     </div>
                   </div>
-                  
+
                   {selectedTask.updated_at && selectedTask.updated_at !== selectedTask.created_at && (
                     <div className="flex items-start">
                       <div className="flex-shrink-0 h-5 w-5 flex items-center justify-center mt-0.5">
@@ -337,7 +339,7 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
                       </div>
                     </div>
                   )}
-                  
+
                   {selectedTask.completed_at && (
                     <div className="flex items-start">
                       <div className="flex-shrink-0 h-5 w-5 flex items-center justify-center mt-0.5">
@@ -355,7 +357,7 @@ const TaskTable: React.FC<TaskTableProps> = ({ fullScreen = false }) => {
               </div>
             </div>
           )}
-          
+
           <DialogFooter>
             <Button variant="outline" onClick={closeTaskDialog}>Close</Button>
           </DialogFooter>

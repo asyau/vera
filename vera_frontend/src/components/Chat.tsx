@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { api } from '@/lib/api';
+import { api } from '@/services/api';
 
 export const Chat = () => {
   const [message, setMessage] = useState('');
@@ -44,4 +44,4 @@ export const Chat = () => {
       )}
     </div>
   );
-}; 
+};

@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Search, 
-  Plus, 
-  MoreVertical, 
-  Send, 
-  Mic, 
-  Paperclip, 
+import {
+  Search,
+  Plus,
+  MoreVertical,
+  Send,
+  Mic,
+  Paperclip,
   AtSign,
   Users,
   User,
@@ -23,15 +23,15 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu';
 import { Separator } from '@/components/ui/separator';
-import { useAuth } from '@/contexts/AuthContext';
-import { api } from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
+import { api } from '@/services/api';
 
 // Types for the messaging system
 interface Message {
@@ -77,7 +77,7 @@ interface Contact {
 }
 
 const TeamChatPanel: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [currentConversation, setCurrentConversation] = useState<Conversation | null>(null);
@@ -89,7 +89,7 @@ const TeamChatPanel: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'conversations' | 'contacts'>('conversations');
   const [viraThinking, setViraThinking] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -194,7 +194,7 @@ const TeamChatPanel: React.FC = () => {
 
     setConversations(mockConversations);
     setContacts(mockContacts);
-    
+
     // Set first conversation as active
     if (mockConversations.length > 0) {
       setCurrentConversation(mockConversations[0]);
@@ -282,7 +282,7 @@ const TeamChatPanel: React.FC = () => {
     // Check if @Vira is mentioned
     if (newMessage.includes('@Vira') || newMessage.includes('@vira')) {
       setViraThinking(true);
-      
+
       try {
         // Simulate Vira response
         setTimeout(() => {
@@ -337,7 +337,7 @@ const TeamChatPanel: React.FC = () => {
     const date = new Date(timestamp);
     const now = new Date();
     const diffInHours = (now.getTime() - date.getTime()) / (1000 * 60 * 60);
-    
+
     if (diffInHours < 24) {
       return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     } else if (diffInHours < 168) { // 7 days
@@ -356,9 +356,9 @@ const TeamChatPanel: React.FC = () => {
       {/* Contact List Sidebar */}
       <div className={`${showConversationList ? 'w-80' : 'w-12'} border-r border-gray-200 flex flex-col transition-all duration-300 ease-in-out relative`}>
         {/* Toggle Button - Always Visible */}
-        <Button 
-          size="sm" 
-          variant="ghost" 
+        <Button
+          size="sm"
+          variant="ghost"
           onClick={() => setShowConversationList(!showConversationList)}
           className="absolute -right-3 top-4 h-6 w-6 p-0 bg-white border border-gray-200 rounded-full shadow-sm z-10 hover:bg-gray-50"
         >
@@ -383,7 +383,7 @@ const TeamChatPanel: React.FC = () => {
               )}
             </div>
           </div>
-          
+
           {/* Search */}
           <div className={`relative transition-opacity duration-300 ${showConversationList ? 'opacity-100' : 'opacity-0'}`}>
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -454,7 +454,7 @@ const TeamChatPanel: React.FC = () => {
                       </Badge>
                     )}
                   </div>
-                  
+
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
                       <h3 className="text-sm font-medium text-gray-900 truncate">
@@ -502,7 +502,7 @@ const TeamChatPanel: React.FC = () => {
                         contact.isOnline ? 'bg-green-500' : 'bg-gray-400'
                       }`} />
                     </div>
-                    
+
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between">
                         <h3 className="text-sm font-medium text-gray-900 truncate">
@@ -551,20 +551,20 @@ const TeamChatPanel: React.FC = () => {
                       </AvatarFallback>
                     </Avatar>
                   )}
-                  
+
                   <div>
                     <h3 className="text-lg font-semibold text-gray-900">
                       {currentConversation.name}
                     </h3>
                     <p className="text-sm text-gray-500">
-                      {currentConversation.type === 'group' 
+                      {currentConversation.type === 'group'
                         ? `${currentConversation.participants.length} participants`
                         : 'Direct message'
                       }
                     </p>
                   </div>
                 </div>
-                
+
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="ghost" size="sm">
@@ -613,7 +613,7 @@ const TeamChatPanel: React.FC = () => {
                           )}
                         </div>
                       )}
-                      
+
                       <div className={`rounded-lg px-4 py-2 ${
                         message.isViraMessage
                           ? 'bg-gradient-to-r from-vira-primary/10 to-vira-primary/5 border border-vira-primary/20'
@@ -635,7 +635,7 @@ const TeamChatPanel: React.FC = () => {
                     </div>
                   </div>
                 ))}
-                
+
                 {viraThinking && (
                   <div className="flex justify-start">
                     <div className="max-w-xs lg:max-w-md">
@@ -658,7 +658,7 @@ const TeamChatPanel: React.FC = () => {
                     </div>
                   </div>
                 )}
-                
+
                 <div ref={messagesEndRef} />
               </div>
             </ScrollArea>
@@ -677,7 +677,7 @@ const TeamChatPanel: React.FC = () => {
                   </Button>
                 </div>
               )}
-              
+
               <div className="flex items-end space-x-2">
                 <div className="flex-1">
                   <Textarea
@@ -688,7 +688,7 @@ const TeamChatPanel: React.FC = () => {
                     className="min-h-[60px] max-h-32 resize-none"
                   />
                 </div>
-                
+
                 <div className="flex space-x-1">
                   <input
                     type="file"
@@ -696,7 +696,7 @@ const TeamChatPanel: React.FC = () => {
                     onChange={handleFileSelect}
                     className="hidden"
                   />
-                  
+
                   <Button
                     variant="outline"
                     size="icon"
@@ -704,7 +704,7 @@ const TeamChatPanel: React.FC = () => {
                   >
                     <Paperclip className="h-4 w-4" />
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     size="icon"
@@ -713,14 +713,14 @@ const TeamChatPanel: React.FC = () => {
                   >
                     <AtSign className="h-4 w-4" />
                   </Button>
-                  
+
                   <Button
                     variant="outline"
                     size="icon"
                   >
                     <Mic className="h-4 w-4" />
                   </Button>
-                  
+
                   <Button
                     onClick={handleSendMessage}
                     disabled={!newMessage.trim()}
@@ -731,7 +731,7 @@ const TeamChatPanel: React.FC = () => {
                   </Button>
                 </div>
               </div>
-              
+
               <div className="mt-2 text-xs text-gray-500">
                 Press Enter to send, Shift+Enter for new line
               </div>

@@ -1,96 +1,120 @@
-from fastapi import FastAPI, Request, status
-from fastapi.responses import JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-import uvicorn
-from dotenv import load_dotenv
-import os
 import logging
+import os
+from datetime import datetime
 
 import sentry_sdk
+import uvicorn
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request, status
+from fastapi.responses import JSONResponse
 from pydantic import ValidationError
+
+# Load environment variables first
+load_dotenv()
 
 sentry_sdk.init(
     dsn="https://d436c015096491c747000cb1fd120cf3@o4509151357829120.ingest.de.sentry.io/4509151366676560",
-    # Add data like request headers and IP for users,
-    # see https://docs.sentry.io/platforms/python/data-management/data-collected/ for more info
     send_default_pii=True,
 )
 
+# Import after loading environment variables
+from app.core.api_gateway import APIGateway
+from app.core.config import settings
+from app.routes import (
+    company,
+    conversation,
+    integrations,
+    langgraph_routes,
+    messaging,
+    openai_service,
+    project,
+    simple_auth,
+    task,
+    team,
+    user,
+)
 
-# Load environment variables from .env file
-load_dotenv()
-
-
-from app.routes import openai_service, task, auth, company, project, team, user, conversation, simple_auth, messaging
-
-
+# Create FastAPI app with enhanced configuration
 app = FastAPI(
-    title="Vera API",
-    description="API for Vera AI Assistant",
-    version="1.0.0"
+    title="Vira API Gateway",
+    description="Microservices API Gateway for Vira AI Assistant Platform",
+    version="2.0.0",
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
-# Configure CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173", 
-        "http://localhost:8080", 
-        "https://localhost:8080",
-        "http://127.0.0.1:8080",
-        "https://127.0.0.1:8080",
-        "http://localhost:8081",
-        "https://localhost:8081",
-        "http://127.0.0.1:8081",
-        "https://127.0.0.1:8081",
-        "http://localhost:3000",
-        "http://127.0.0.1:3000"
-    ],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["*"],
-    expose_headers=["*"]
-)
+# Initialize API Gateway
+api_gateway = APIGateway(app)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Include routers
-app.include_router(openai_service.router, prefix="/api", tags=["openai"])
-app.include_router(task.router, prefix="/api", tags=["tasks"])
-# app.include_router(auth.router, prefix="/api", tags=["auth"])  # Disabled complex auth route
-app.include_router(company.router, prefix="/api", tags=["companies"])
-app.include_router(project.router, prefix="/api", tags=["projects"])
-app.include_router(team.router, prefix="/api", tags=["teams"])
-app.include_router(user.router, prefix="/api", tags=["users"])
-app.include_router(conversation.router, prefix="/api", tags=["conversations"])
-app.include_router(simple_auth.router, prefix="/api", tags=["simple-auth"])
+# Include routers with enhanced organization
+# Core services
+app.include_router(simple_auth.router, prefix="", tags=["Authentication"])
+app.include_router(user.router, prefix="/api/users", tags=["User Management"])
+app.include_router(company.router, prefix="/api/companies", tags=["Company Management"])
+app.include_router(project.router, prefix="/api/projects", tags=["Project Management"])
+app.include_router(team.router, prefix="/api/teams", tags=["Team Management"])
 
-app.include_router(messaging.router, prefix="/api", tags=["messaging"])
+# Business logic services
+app.include_router(task.router, prefix="/api/tasks", tags=["Task Management"])
+app.include_router(
+    conversation.router, prefix="/api/conversations", tags=["Communication"]
+)
+app.include_router(messaging.router, prefix="/api/messaging", tags=["Messaging"])
 
-@app.get("/")
+# AI services
+app.include_router(openai_service.router, prefix="/api/ai", tags=["AI Orchestration"])
+app.include_router(
+    langgraph_routes.router, prefix="/api/workflows", tags=["LangGraph Workflows"]
+)
+
+# Integration services
+app.include_router(
+    integrations.router, prefix="/api/integrations", tags=["Third-party Integrations"]
+)
+
+
+# Health and status endpoints
+@app.get("/", tags=["Health"])
 async def root():
-    return {"message": "Welcome to Vera API"}
+    return {
+        "message": "Welcome to Vira API Gateway",
+        "version": "2.0.0",
+        "architecture": "microservices",
+    }
 
-@app.get("/health")
+
+@app.get("/health", tags=["Health"])
 async def health_check():
-    return {"status": "healthy", "message": "Backend is running"}
+    """Comprehensive health check including service dependencies"""
+    from app.core.api_gateway import service_router
 
-@app.options("/api/tasks")
-async def tasks_options():
-    """Handle preflight requests for tasks endpoint"""
-    return JSONResponse(
-        status_code=200,
-        content={},
-        headers={
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-            "Access-Control-Allow-Headers": "*",
-        }
-    )
+    # Check service health
+    service_health = await service_router.get_healthy_services()
 
+    overall_health = "healthy" if all(service_health.values()) else "degraded"
+
+    return {
+        "status": overall_health,
+        "message": "API Gateway is running",
+        "services": service_health,
+        "timestamp": str(datetime.utcnow()),
+    }
+
+
+@app.get("/services", tags=["Health"])
+async def service_status():
+    """Get detailed service registry information"""
+    from app.core.api_gateway import service_router
+
+    return {
+        "services": service_router.service_registry,
+        "health_status": await service_router.get_healthy_services(),
+    }
 
 
 if __name__ == "__main__":
-    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True) 
+    uvicorn.run("app.main:app", host="0.0.0.0", port=8000, reload=True)

@@ -72,13 +72,13 @@ const SessionContext = createContext<SessionContextType | undefined>(undefined);
 export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [sessions, setSessions] = useState<ChatSession[]>(initialSessions);
   const [currentSessionId, setCurrentSessionId] = useState<string>(initialSessions[0].id);
-  
+
   const currentSession = sessions.find(session => session.id === currentSessionId) || null;
-  
+
   const setCurrentSession = (sessionId: string) => {
     setCurrentSessionId(sessionId);
   };
-  
+
   const createNewSession = () => {
     const newSession: ChatSession = {
       id: Date.now().toString(),
@@ -95,24 +95,24 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ],
       lastUpdated: new Date()
     };
-    
+
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newSession.id);
   };
-  
+
   const addMessageToCurrentSession = (message: Message) => {
     if (!currentSession) return;
-    
+
     setSessions(prev => prev.map(session => {
       if (session.id === currentSessionId) {
         // If it's the first user message, update the title
         let newTitle = session.title;
         if (session.title === 'New Conversation' && message.type === 'user') {
-          newTitle = message.content.length > 25 
-            ? `${message.content.substring(0, 25)}...` 
+          newTitle = message.content.length > 25
+            ? `${message.content.substring(0, 25)}...`
             : message.content;
         }
-        
+
         return {
           ...session,
           title: newTitle,
@@ -123,9 +123,9 @@ export const SessionProvider: React.FC<{ children: React.ReactNode }> = ({ child
       return session;
     }));
   };
-  
+
   return (
-    <SessionContext.Provider 
+    <SessionContext.Provider
       value={{
         sessions,
         currentSession,

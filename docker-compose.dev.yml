@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # Development services only (no app containers)
+  postgres:
+    image: postgres:13
+    container_name: vera-postgres-dev
+    environment:
+      POSTGRES_USER: vera
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: vera
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vera"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  redis:
+    image: redis:7-alpine
+    container_name: vera-redis-dev
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_dev_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:

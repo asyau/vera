@@ -3,7 +3,7 @@ import ChatMessage from './ChatMessage';
 import ChatInput from './ChatInput';
 import { useSession } from '@/contexts/SessionContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { api } from '@/lib/api';
+import { api } from '@/services/api';
 
 // Export Message interface so it can be used in other components
 export interface Message {
@@ -18,15 +18,15 @@ const ChatPanel: React.FC = () => {
   const { currentSession, addMessageToCurrentSession } = useSession();
   const [isAiTyping, setIsAiTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
   // Scroll to bottom whenever messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [currentSession?.messages]);
-  
+
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
-    
+
     // Add user message
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -35,7 +35,7 @@ const ChatPanel: React.FC = () => {
       timestamp: new Date().toISOString(),
     };
     addMessageToCurrentSession(userMessage);
-    
+
     // Get AI response
     setIsAiTyping(true);
     try {
@@ -69,7 +69,7 @@ const ChatPanel: React.FC = () => {
       </div>
     );
   }
-  
+
   return (
     <div className="flex flex-col h-full rounded-lg bg-white shadow-sm border border-gray-100">
       <div className="p-4 border-b border-gray-100">
@@ -77,7 +77,7 @@ const ChatPanel: React.FC = () => {
           <span className="text-vira-primary">Vira</span> — AI Chat Assistant
         </h2>
       </div>
-      
+
       <ScrollArea className="flex-1 bg-gray-50">
         <div className="p-4 space-y-4">
           {currentSession.messages.map((message) => (
@@ -89,7 +89,7 @@ const ChatPanel: React.FC = () => {
               timestamp={message.timestamp}
             />
           ))}
-          
+
           {isAiTyping && (
             <div className="flex items-center space-x-2 p-4">
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
@@ -97,11 +97,11 @@ const ChatPanel: React.FC = () => {
               <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce delay-200" />
             </div>
           )}
-          
+
           <div ref={messagesEndRef} />
         </div>
       </ScrollArea>
-      
+
       <div className="p-3 border-t border-gray-100 bg-white sticky bottom-0">
         <ChatInput onSendMessage={handleSendMessage} />
       </div>

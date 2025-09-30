@@ -4,23 +4,23 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import { Calendar, Clock, User, CheckCircle, Circle, AlertCircle } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/authStore';
 import { useTasks } from '@/hooks/use-tasks';
 
 const EmployeeTaskView: React.FC = () => {
-  const { user } = useAuth();
+  const { user } = useAuthStore();
   const { tasks, loading, error } = useTasks();
 
   // Filter tasks assigned to the current user
-  const myTasks = tasks?.filter(task => task.assignedTo === user?.id) || [];
+  const myTasks = tasks?.filter(task => task.assigned_to === user?.id) || [];
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case 'completed':
         return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case 'in-progress':
+      case 'in_progress':
         return <Circle className="h-4 w-4 text-blue-500" />;
-      case 'pending':
+      case 'todo':
         return <AlertCircle className="h-4 w-4 text-yellow-500" />;
       case 'cancelled':
         return <AlertCircle className="h-4 w-4 text-red-500" />;
@@ -33,9 +33,9 @@ const EmployeeTaskView: React.FC = () => {
     switch (status) {
       case 'completed':
         return 'bg-green-100 text-green-800';
-      case 'in-progress':
+      case 'in_progress':
         return 'bg-blue-100 text-blue-800';
-      case 'pending':
+      case 'todo':
         return 'bg-yellow-100 text-yellow-800';
       case 'cancelled':
         return 'bg-red-100 text-red-800';
@@ -48,9 +48,9 @@ const EmployeeTaskView: React.FC = () => {
     switch (status) {
       case 'completed':
         return 100;
-      case 'in-progress':
+      case 'in_progress':
         return 50;
-      case 'pending':
+      case 'todo':
         return 0;
       case 'cancelled':
         return 0;
@@ -129,31 +129,31 @@ const EmployeeTaskView: React.FC = () => {
                     <span>{getProgressValue(task.status)}%</span>
                   </div>
                   <Progress value={getProgressValue(task.status)} className="h-2" />
-                  
+
                   <div className="flex items-center justify-between text-sm">
                     <div className="flex items-center space-x-4 text-gray-600">
-                      {task.dueDate && (
+                      {task.due_date && (
                         <div className="flex items-center space-x-1">
                           <Calendar className="h-4 w-4" />
-                          <span>Due: {new Date(task.dueDate).toLocaleDateString()}</span>
+                          <span>Due: {new Date(task.due_date).toLocaleDateString()}</span>
                         </div>
                       )}
                       <div className="flex items-center space-x-1">
                         <Clock className="h-4 w-4" />
-                        <span>Created: {new Date(task.timeline.createdAt).toLocaleDateString()}</span>
+                        <span>Created: {new Date(task.created_at).toLocaleDateString()}</span>
                       </div>
                     </div>
-                    
+
                     <div className="flex space-x-2">
                       <Button variant="outline" size="sm">
                         View Details
                       </Button>
-                      {task.status === 'pending' && (
+                      {task.status === 'todo' && (
                         <Button size="sm">
                           Start Task
                         </Button>
                       )}
-                      {task.status === 'in-progress' && (
+                      {task.status === 'in_progress' && (
                         <Button size="sm">
                           Mark Complete
                         </Button>
@@ -170,4 +170,4 @@ const EmployeeTaskView: React.FC = () => {
   );
 };
 
-export default EmployeeTaskView; 
+export default EmployeeTaskView;

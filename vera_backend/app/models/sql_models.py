@@ -1,10 +1,24 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, Text, Boolean, Integer, BigInteger, ARRAY, JSON
-from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID, JSONB, TIMESTAMP, BIGINT
-from pgvector.sqlalchemy import Vector
-from datetime import datetime
-from app.database import Base
 import uuid
+from datetime import datetime
+
+from pgvector.sqlalchemy import Vector
+from sqlalchemy import (
+    ARRAY,
+    JSON,
+    BigInteger,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+)
+from sqlalchemy.dialects.postgresql import BIGINT, JSONB, TIMESTAMP, UUID
+from sqlalchemy.orm import relationship
+
+from app.database import Base
+
 
 class Company(Base):
     __tablename__ = "companies"
@@ -20,6 +34,7 @@ class Company(Base):
     users = relationship("User", back_populates="company")
     integrations = relationship("Integration", back_populates="company")
     memory_vectors = relationship("MemoryVector", back_populates="company")
+
 
 class Project(Base):
     __tablename__ = "projects"
@@ -37,6 +52,7 @@ class Project(Base):
     tasks = relationship("Task", back_populates="project")
     conversations = relationship("Conversation", back_populates="project")
     documents = relationship("Document", back_populates="project")
+
 
 class Team(Base):
     __tablename__ = "teams"
@@ -56,6 +72,7 @@ class Team(Base):
     conversations = relationship("Conversation", back_populates="team")
     documents = relationship("Document", back_populates="team")
 
+
 class User(Base):
     __tablename__ = "users"
 
@@ -74,13 +91,20 @@ class User(Base):
     company = relationship("Company", back_populates="users")
     team = relationship("Team", foreign_keys=[team_id], back_populates="users")
     project = relationship("Project", back_populates="users")
-    supervised_teams = relationship("Team", foreign_keys="Team.supervisor_id", back_populates="supervisor")
-    created_tasks = relationship("Task", foreign_keys="Task.created_by", back_populates="creator")
-    assigned_tasks = relationship("Task", foreign_keys="Task.assigned_to", back_populates="assignee")
+    supervised_teams = relationship(
+        "Team", foreign_keys="Team.supervisor_id", back_populates="supervisor"
+    )
+    created_tasks = relationship(
+        "Task", foreign_keys="Task.created_by", back_populates="creator"
+    )
+    assigned_tasks = relationship(
+        "Task", foreign_keys="Task.assigned_to", back_populates="assignee"
+    )
     sent_messages = relationship("Message", back_populates="sender")
     uploaded_documents = relationship("Document", back_populates="uploader")
     notifications = relationship("Notification", back_populates="user")
     memory_vectors = relationship("MemoryVector", back_populates="user")
+
 
 class Task(Base):
     __tablename__ = "tasks"
@@ -94,17 +118,26 @@ class Task(Base):
     created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     original_prompt = Column(Text, nullable=True)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=True)
-    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=True)
+    conversation_id = Column(
+        UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=True
+    )
     created_at = Column(TIMESTAMP(timezone=True), default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(
+        TIMESTAMP(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
     completed_at = Column(TIMESTAMP(timezone=True), nullable=True)
     priority = Column(String(50), default="medium")
 
     # Relationships
-    assignee = relationship("User", foreign_keys=[assigned_to], back_populates="assigned_tasks")
-    creator = relationship("User", foreign_keys=[created_by], back_populates="created_tasks")
+    assignee = relationship(
+        "User", foreign_keys=[assigned_to], back_populates="assigned_tasks"
+    )
+    creator = relationship(
+        "User", foreign_keys=[created_by], back_populates="created_tasks"
+    )
     project = relationship("Project", back_populates="tasks")
     conversation = relationship("Conversation", back_populates="tasks")
+
 
 class Conversation(Base):
     __tablename__ = "conversations"
@@ -123,11 +156,14 @@ class Conversation(Base):
     messages = relationship("Message", back_populates="conversation")
     tasks = relationship("Task", back_populates="conversation")
 
+
 class Message(Base):
     __tablename__ = "messages"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4, index=True)
-    conversation_id = Column(UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False)
+    conversation_id = Column(
+        UUID(as_uuid=True), ForeignKey("conversations.id"), nullable=False
+    )
     sender_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     content = Column(Text, nullable=False)
     type = Column(String(50), nullable=False)
@@ -137,6 +173,7 @@ class Message(Base):
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
     sender = relationship("User", back_populates="sent_messages")
+
 
 class Document(Base):
     __tablename__ = "documents"
@@ -158,6 +195,7 @@ class Document(Base):
     team = relationship("Team", back_populates="documents")
     chunks = relationship("DocumentChunk", back_populates="document")
 
+
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
 
@@ -170,6 +208,7 @@ class DocumentChunk(Base):
 
     # Relationships
     document = relationship("Document", back_populates="chunks")
+
 
 class MemoryVector(Base):
     __tablename__ = "memory_vectors"
@@ -187,6 +226,7 @@ class MemoryVector(Base):
     user = relationship("User", back_populates="memory_vectors")
     company = relationship("Company", back_populates="memory_vectors")
 
+
 class Notification(Base):
     __tablename__ = "notifications"
 
@@ -202,6 +242,7 @@ class Notification(Base):
     # Relationships
     user = relationship("User", back_populates="notifications")
 
+
 class Integration(Base):
     __tablename__ = "integrations"
 
@@ -211,7 +252,9 @@ class Integration(Base):
     config = Column(JSONB, nullable=False)
     enabled = Column(Boolean, default=True)
     created_at = Column(TIMESTAMP(timezone=True), default=datetime.utcnow)
-    updated_at = Column(TIMESTAMP(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+    updated_at = Column(
+        TIMESTAMP(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow
+    )
 
     # Relationships
     company = relationship("Company", back_populates="integrations")

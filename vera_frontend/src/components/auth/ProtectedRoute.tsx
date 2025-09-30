@@ -1,6 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/authStore';
 import { Loader2 } from 'lucide-react';
 
 interface ProtectedRouteProps {
@@ -14,7 +14,7 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   requiredRoles = [],
   fallbackPath = '/login',
 }) => {
-  const { isAuthenticated, isLoading, hasAnyRole } = useAuth();
+  const { isAuthenticated, isLoading, hasAnyRole } = useAuthStore();
   const location = useLocation();
 
   // Show loading spinner while checking authentication
@@ -42,4 +42,4 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   return <>{children}</>;
 };
 
-export default ProtectedRoute; 
+export default ProtectedRoute;

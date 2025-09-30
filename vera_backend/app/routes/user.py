@@ -1,237 +1,372 @@
-from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.orm import Session, joinedload
-from typing import List
-import uuid
-import logging
+"""
+Enhanced User Management Routes using Service Layer pattern
+"""
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-from app.models.sql_models import User, Company, Team, Project
-from app.models.pydantic_models import UserCreate, UserResponse, UserUpdate, UserListResponse
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
+from sqlalchemy.orm import Session
+
+from app.core.api_gateway import AuthenticationMiddleware
+from app.core.exceptions import ViraException
 from app.database import get_db
+from app.services.user_service import UserService
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+# AuthUser type not needed for this file
+
 
 router = APIRouter()
 
-@router.get("/users", response_model=UserListResponse)
-async def get_users(db: Session = Depends(get_db)):
-    """Get all users."""
-    try:
-        users = db.query(User).options(
-            joinedload(User.company),
-            joinedload(User.team),
-            joinedload(User.project)
-        ).all()
-        return UserListResponse(
-            users=[UserResponse.from_orm(user) for user in users],
-            total=len(users)
-        )
-    except Exception as e:
-        logger.error(f"Error fetching users: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching users: {str(e)}")
 
-@router.get("/users/{user_id}", response_model=UserResponse)
-async def get_user(user_id: str, db: Session = Depends(get_db)):
-    """Get a specific user by ID."""
+# Request/Response Models
+class UserUpdateRequest(BaseModel):
+    name: Optional[str] = None
+    email: Optional[str] = None
+    team_id: Optional[UUID] = None
+    preferences: Optional[Dict[str, Any]] = None
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str
+    new_password: str
+
+
+class UserCreateRequest(BaseModel):
+    name: str
+    email: str
+    password: str
+    role: str
+    company_id: UUID
+    team_id: Optional[UUID] = None
+    project_id: Optional[UUID] = None
+    preferences: Optional[Dict[str, Any]] = None
+
+
+class UserResponse(BaseModel):
+    id: str
+    name: str
+    email: str
+    role: str
+    company_id: str
+    team_id: Optional[str]
+    is_active: bool
+    created_at: str
+    last_login: Optional[str]
+    preferences: Optional[Dict[str, Any]]
+    # Additional fields for frontend
+    team_name: Optional[str] = None
+    company_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Routes
+@router.get("/me", response_model=UserResponse)
+async def get_current_user(
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Get current user profile"""
     try:
-        user = db.query(User).options(
-            joinedload(User.company),
-            joinedload(User.team),
-            joinedload(User.project)
-        ).filter(User.id == uuid.UUID(user_id)).first()
-        
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
+        user_service = UserService(db)
+        user = user_service.repository.get_or_raise(UUID(current_user_id))
+
         return UserResponse.from_orm(user)
-    except Exception as e:
-        logger.error(f"Error fetching user {user_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching user: {str(e)}")
 
-@router.get("/companies/{company_id}/users", response_model=UserListResponse)
-async def get_company_users(company_id: str, db: Session = Depends(get_db)):
-    """Get all users for a specific company."""
-    try:
-        users = db.query(User).options(
-            joinedload(User.company),
-            joinedload(User.team),
-            joinedload(User.project)
-        ).filter(User.company_id == uuid.UUID(company_id)).all()
-        return UserListResponse(
-            users=[UserResponse.from_orm(user) for user in users],
-            total=len(users)
+    except ViraException as e:
+        raise HTTPException(
+            status_code=404 if "not found" in e.message.lower() else 400,
+            detail=e.message,
         )
     except Exception as e:
-        logger.error(f"Error fetching users for company {company_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching users: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get user: {str(e)}")
 
-@router.get("/teams/{team_id}/users", response_model=UserListResponse)
-async def get_team_users(team_id: str, db: Session = Depends(get_db)):
-    """Get all users for a specific team."""
-    try:
-        users = db.query(User).options(
-            joinedload(User.company),
-            joinedload(User.team),
-            joinedload(User.project)
-        ).filter(User.team_id == uuid.UUID(team_id)).all()
-        return UserListResponse(
-            users=[UserResponse.from_orm(user) for user in users],
-            total=len(users)
-        )
-    except Exception as e:
-        logger.error(f"Error fetching users for team {team_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching users: {str(e)}")
 
-@router.get("/projects/{project_id}/users", response_model=UserListResponse)
-async def get_project_users(project_id: str, db: Session = Depends(get_db)):
-    """Get all users for a specific project."""
+@router.put("/me", response_model=UserResponse)
+async def update_current_user(
+    request: UserUpdateRequest,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Update current user profile"""
     try:
-        users = db.query(User).options(
-            joinedload(User.company),
-            joinedload(User.team),
-            joinedload(User.project)
-        ).filter(User.project_id == uuid.UUID(project_id)).all()
-        return UserListResponse(
-            users=[UserResponse.from_orm(user) for user in users],
-            total=len(users)
-        )
-    except Exception as e:
-        logger.error(f"Error fetching users for project {project_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching users: {str(e)}")
+        user_service = UserService(db)
 
-@router.post("/users", response_model=UserResponse)
-async def create_user(user_info: UserCreate, db: Session = Depends(get_db)):
-    """Create a new user."""
-    try:
-        # Verify company exists
-        company = db.query(Company).filter(Company.id == user_info.company_id).first()
-        if not company:
-            raise HTTPException(status_code=404, detail="Company not found")
-        
-        # Verify team exists if provided
-        if user_info.team_id:
-            team = db.query(Team).filter(Team.id == user_info.team_id).first()
-            if not team:
-                raise HTTPException(status_code=404, detail="Team not found")
-        
-        # Verify project exists if provided
-        if user_info.project_id:
-            project = db.query(Project).filter(Project.id == user_info.project_id).first()
-            if not project:
-                raise HTTPException(status_code=404, detail="Project not found")
-        
-        # Check if email already exists
-        existing_user = db.query(User).filter(User.email == user_info.email).first()
-        if existing_user:
-            raise HTTPException(status_code=400, detail="User with this email already exists")
-        
-        user = User(
-            id=uuid.uuid4(),
-            name=user_info.name,
-            email=user_info.email,
-            role=user_info.role,
-            company_id=user_info.company_id,
-            team_id=user_info.team_id,
-            project_id=user_info.project_id,
-            preferences=user_info.preferences
+        # Filter out None values
+        update_data = {k: v for k, v in request.dict().items() if v is not None}
+
+        user = user_service.update_user_profile(
+            user_id=UUID(current_user_id), update_data=update_data
         )
-        
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-        
-        # Load related data for response
-        user = db.query(User).options(
-            joinedload(User.company),
-            joinedload(User.team),
-            joinedload(User.project)
-        ).filter(User.id == user.id).first()
-        
-        logger.info(f"Created user: {user.name} with ID: {user.id}")
+
         return UserResponse.from_orm(user)
-        
-    except Exception as e:
-        logger.error(f"Error creating user: {str(e)}")
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error creating user: {str(e)}")
 
-@router.put("/users/{user_id}", response_model=UserResponse)
-async def update_user(user_id: str, user_update: UserUpdate, db: Session = Depends(get_db)):
-    """Update a user."""
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update user: {str(e)}")
+
+
+@router.post("/me/change-password")
+async def change_password(
+    request: ChangePasswordRequest,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Change user password"""
     try:
-        user = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
-        
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Update fields if provided
-        if user_update.name is not None:
-            user.name = user_update.name
-        if user_update.email is not None:
-            # Check if email already exists for another user
-            existing_user = db.query(User).filter(
-                User.email == user_update.email,
-                User.id != uuid.UUID(user_id)
-            ).first()
-            if existing_user:
-                raise HTTPException(status_code=400, detail="User with this email already exists")
-            user.email = user_update.email
-        if user_update.role is not None:
-            user.role = user_update.role
-        if user_update.company_id is not None:
-            # Verify new company exists
-            company = db.query(Company).filter(Company.id == user_update.company_id).first()
-            if not company:
-                raise HTTPException(status_code=404, detail="Company not found")
-            user.company_id = user_update.company_id
-        if user_update.team_id is not None:
-            # Verify new team exists
-            team = db.query(Team).filter(Team.id == user_update.team_id).first()
-            if not team:
-                raise HTTPException(status_code=404, detail="Team not found")
-            user.team_id = user_update.team_id
-        if user_update.project_id is not None:
-            # Verify new project exists
-            project = db.query(Project).filter(Project.id == user_update.project_id).first()
-            if not project:
-                raise HTTPException(status_code=404, detail="Project not found")
-            user.project_id = user_update.project_id
-        if user_update.preferences is not None:
-            user.preferences = user_update.preferences
-        
-        db.commit()
-        db.refresh(user)
-        
-        # Load related data for response
-        user = db.query(User).options(
-            joinedload(User.company),
-            joinedload(User.team),
-            joinedload(User.project)
-        ).filter(User.id == user.id).first()
-        
+        user_service = UserService(db)
+
+        success = user_service.change_password(
+            user_id=UUID(current_user_id),
+            current_password=request.current_password,
+            new_password=request.new_password,
+        )
+
+        return {"message": "Password changed successfully"}
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to change password: {str(e)}"
+        )
+
+
+@router.get("/", response_model=List[UserResponse])
+async def get_users(
+    company_filter: Optional[str] = Query(None, description="Filter by company ID"),
+    team_filter: Optional[str] = Query(None, description="Filter by team ID"),
+    role_filter: Optional[str] = Query(None, description="Filter by role"),
+    current_user_token: dict = Depends(
+        AuthenticationMiddleware.require_any_role(["supervisor", "admin"])
+    ),
+    db: Session = Depends(get_db),
+):
+    """Get users with filters (supervisor/admin only)"""
+    try:
+        user_service = UserService(db)
+
+        if company_filter:
+            users = user_service.get_company_users(UUID(company_filter))
+        elif team_filter:
+            users = user_service.get_team_members(UUID(team_filter))
+        elif role_filter:
+            users = user_service.repository.get_by_role(role_filter)
+        else:
+            # Get all users - limit based on current user's company
+            current_user_id = current_user_token.get("user_id")
+            current_user = user_service.repository.get_or_raise(UUID(current_user_id))
+            users = user_service.get_company_users(UUID(str(current_user.company_id)))
+
+        # Convert to UserResponse with team_name and company_name
+        user_responses = []
+        for user in users:
+            user_response = UserResponse(
+                id=str(user.id),
+                name=user.name,
+                email=user.email,
+                role=user.role,
+                company_id=str(user.company_id),
+                team_id=str(user.team_id) if user.team_id else None,
+                is_active=True,  # Assuming active for now
+                created_at=user.created_at.isoformat() if user.created_at else "",
+                last_login=None,  # Not tracked in simple auth
+                preferences=user.preferences
+                if isinstance(user.preferences, dict)
+                else None,
+                team_name=user.team.name if user.team else None,
+                company_name=user.company.name if user.company else None,
+            )
+            user_responses.append(user_response)
+
+        return user_responses
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get users: {str(e)}")
+
+
+@router.get("/{user_id}", response_model=UserResponse)
+async def get_user(
+    user_id: UUID,
+    current_user_token: dict = Depends(
+        AuthenticationMiddleware.require_any_role(["supervisor", "admin"])
+    ),
+    db: Session = Depends(get_db),
+):
+    """Get specific user (supervisor/admin only)"""
+    try:
+        user_service = UserService(db)
+        user = user_service.repository.get_or_raise(user_id)
+
         return UserResponse.from_orm(user)
-        
-    except Exception as e:
-        logger.error(f"Error updating user {user_id}: {str(e)}")
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error updating user: {str(e)}")
 
-@router.delete("/users/{user_id}")
-async def delete_user(user_id: str, db: Session = Depends(get_db)):
-    """Delete a user."""
+    except ViraException as e:
+        raise HTTPException(
+            status_code=404 if "not found" in e.message.lower() else 400,
+            detail=e.message,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get user: {str(e)}")
+
+
+@router.put("/{user_id}/team", response_model=UserResponse)
+async def assign_user_to_team(
+    user_id: UUID,
+    team_id: UUID,
+    current_user_token: dict = Depends(
+        AuthenticationMiddleware.require_role("supervisor")
+    ),
+    db: Session = Depends(get_db),
+):
+    """Assign user to team (supervisor only)"""
     try:
-        user = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
-        
-        if not user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        db.delete(user)
-        db.commit()
-        
+        user_service = UserService(db)
+
+        user = user_service.assign_user_to_team(
+            user_id=user_id, team_id=team_id, requester_role="supervisor"
+        )
+
+        return UserResponse.from_orm(user)
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to assign user to team: {str(e)}"
+        )
+
+
+@router.put("/{user_id}/deactivate")
+async def deactivate_user(
+    user_id: UUID,
+    current_user_token: dict = Depends(
+        AuthenticationMiddleware.require_role("supervisor")
+    ),
+    db: Session = Depends(get_db),
+):
+    """Deactivate user (supervisor only)"""
+    try:
+        user_service = UserService(db)
+
+        user = user_service.deactivate_user(
+            user_id=user_id, requester_role="supervisor"
+        )
+
+        return {"message": f"User {user.name} deactivated successfully"}
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to deactivate user: {str(e)}"
+        )
+
+
+@router.get("/search/query", response_model=List[UserResponse])
+async def search_users(
+    q: str = Query(..., description="Search query"),
+    current_user_token: dict = Depends(
+        AuthenticationMiddleware.require_any_role(["supervisor", "admin"])
+    ),
+    db: Session = Depends(get_db),
+):
+    """Search users by name or email (supervisor/admin only)"""
+    try:
+        user_service = UserService(db)
+
+        # Limit search to current user's company
+        current_user_id = current_user_token.get("user_id")
+        current_user = user_service.repository.get_or_raise(UUID(current_user_id))
+
+        users = user_service.search_users(query=q, company_id=current_user.company_id)
+
+        return [UserResponse.from_orm(user) for user in users]
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to search users: {str(e)}")
+
+
+@router.post("/", response_model=UserResponse)
+async def create_user(
+    request: UserCreateRequest,
+    current_user_token: dict = Depends(AuthenticationMiddleware.require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """Create a new user (admin only)"""
+    try:
+        user_service = UserService(db)
+
+        user = user_service.create_user(
+            name=request.name,
+            email=request.email,
+            password=request.password,
+            role=request.role,
+            company_id=request.company_id,
+            team_id=request.team_id,
+            project_id=request.project_id,
+            preferences=request.preferences,
+        )
+
+        return UserResponse.from_orm(user)
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create user: {str(e)}")
+
+
+@router.put("/{user_id}", response_model=UserResponse)
+async def update_user(
+    user_id: UUID,
+    request: UserUpdateRequest,
+    current_user_token: dict = Depends(
+        AuthenticationMiddleware.require_any_role(["admin", "supervisor"])
+    ),
+    db: Session = Depends(get_db),
+):
+    """Update a user (admin/supervisor only)"""
+    try:
+        user_service = UserService(db)
+
+        # Filter out None values
+        update_data = {k: v for k, v in request.dict().items() if v is not None}
+
+        user = user_service.update_user_profile(
+            user_id=user_id,
+            update_data=update_data,
+            requester_role=current_user_token.get("role"),
+        )
+
+        return UserResponse.from_orm(user)
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to update user: {str(e)}")
+
+
+@router.delete("/{user_id}")
+async def delete_user(
+    user_id: UUID,
+    current_user_token: dict = Depends(AuthenticationMiddleware.require_role("admin")),
+    db: Session = Depends(get_db),
+):
+    """Delete a user (admin only)"""
+    try:
+        user_service = UserService(db)
+
+        success = user_service.delete_user(user_id=user_id, requester_role="admin")
+
         return {"message": "User deleted successfully"}
-        
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
     except Exception as e:
-        logger.error(f"Error deleting user {user_id}: {str(e)}")
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Error deleting user: {str(e)}") 
+        raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")

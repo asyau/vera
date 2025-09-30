@@ -6,12 +6,13 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Search, Users as UsersIcon, Building, Users2 } from 'lucide-react';
-import { api, User } from '@/lib/api';
+import { api } from '@/services/api';
+import { AuthUser } from '@/types/auth';
 import { useToast } from '@/hooks/use-toast';
 
 const TeamDashboard = () => {
-  const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
+  const [users, setUsers] = useState<AuthUser[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<AuthUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -258,4 +259,4 @@ const TeamDashboard = () => {
   );
 };
 
-export default TeamDashboard; 
+export default TeamDashboard;

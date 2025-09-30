@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { api } from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
+import { api } from '@/services/api';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -9,13 +9,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
 import { useToast } from '@/hooks/use-toast';
-import { 
-  Settings as SettingsIcon, 
-  Bell, 
-  Shield, 
-  Palette, 
-  Save, 
-  Eye, 
+import {
+  Settings as SettingsIcon,
+  Bell,
+  Shield,
+  Palette,
+  Save,
+  Eye,
   EyeOff,
   Lock,
   User,
@@ -33,21 +33,21 @@ import {
 } from "@/components/ui/select";
 
 const Settings = () => {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuthStore();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   // Form states
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
-  
+
   const [preferences, setPreferences] = useState({
     theme: 'system',
     notifications: {
@@ -74,7 +74,7 @@ const Settings = () => {
 
   const handlePasswordChange = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast({
         title: "Error",
@@ -96,13 +96,13 @@ const Settings = () => {
     setIsLoading(true);
     try {
       await api.changePassword(passwordForm.currentPassword, passwordForm.newPassword);
-      
+
       setPasswordForm({
         currentPassword: '',
         newPassword: '',
         confirmPassword: '',
       });
-      
+
       toast({
         title: "Success",
         description: "Password changed successfully",
@@ -139,7 +139,7 @@ const Settings = () => {
       ...preferences,
       theme,
     }));
-    
+
     // Apply theme to document
     document.documentElement.className = theme;
   };
@@ -401,8 +401,8 @@ const Settings = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label>Profile Visibility</Label>
-                <Select 
-                  value={preferences.privacy.profileVisibility} 
+                <Select
+                  value={preferences.privacy.profileVisibility}
                   onValueChange={(value) => handlePreferenceChange('privacy', 'profileVisibility', value)}
                 >
                   <SelectTrigger>
@@ -463,8 +463,8 @@ const Settings = () => {
               <Button variant="outline" className="flex-1">
                 Download Activity Log
               </Button>
-              <Button 
-                variant="destructive" 
+              <Button
+                variant="destructive"
                 className="flex-1"
                 onClick={logout}
               >
@@ -478,4 +478,4 @@ const Settings = () => {
   );
 };
 
-export default Settings; 
+export default Settings;

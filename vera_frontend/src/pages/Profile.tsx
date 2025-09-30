@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useAuth } from '@/contexts/AuthContext';
-import { api, User } from '@/lib/api';
+import { useAuthStore } from '@/stores/authStore';
+import { api } from '@/services/api';
+import { AuthUser } from '@/types/auth';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -14,12 +15,12 @@ import { User as UserIcon, Mail, Shield, Building, Calendar, Edit, Save, X, Arro
 import { format } from 'date-fns';
 
 const Profile = () => {
-  const { user, logout } = useAuth();
+  const { user, logout } = useAuthStore();
   const { toast } = useToast();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [userData, setUserData] = useState<User | null>(null);
+  const [userData, setUserData] = useState<AuthUser | null>(null);
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -29,7 +30,7 @@ const Profile = () => {
     const fetchUserData = async () => {
       if (user?.id) {
         try {
-          const data = await api.getUser(user.id);
+          const data = await api.getCurrentUser();
           setUserData(data);
           setFormData({
             name: data.name,
@@ -53,14 +54,14 @@ const Profile = () => {
 
     setIsLoading(true);
     try {
-      const updatedUser = await api.updateUser(user.id, {
+      const updatedUser = await api.updateProfile({
         name: formData.name,
         email: formData.email,
       });
-      
+
       setUserData(updatedUser);
       setIsEditing(false);
-      
+
       toast({
         title: "Success",
         description: "Profile updated successfully",
@@ -181,13 +182,13 @@ const Profile = () => {
                     )}
                   </Badge>
                 </div>
-                
+
                 <Separator />
-                
+
                 <div className="space-y-3 text-sm">
                   <div className="flex items-center space-x-2 text-gray-600">
                     <Building className="h-4 w-4" />
-                    <span>Company: {userData.company?.name || 'N/A'}</span>
+                    <span>Company ID: {userData.company_id || 'N/A'}</span>
                   </div>
                   <div className="flex items-center space-x-2 text-gray-600">
                     <Calendar className="h-4 w-4" />
@@ -227,7 +228,7 @@ const Profile = () => {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="email">Email Address</Label>
                     {isEditing ? (
@@ -259,7 +260,7 @@ const Profile = () => {
                         </Badge>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label>User ID</Label>
                       <div className="p-3 bg-gray-50 rounded-md border font-mono text-sm">
@@ -269,27 +270,18 @@ const Profile = () => {
                   </div>
                 </div>
 
-                {userData.team && (
+                {userData.team_id && (
                   <>
                     <Separator />
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Team Information</h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label>Team</Label>
+                          <Label>Team ID</Label>
                           <div className="p-3 bg-gray-50 rounded-md border">
-                            {userData.team.name}
+                            {userData.team_id}
                           </div>
                         </div>
-                        
-                        {userData.project && (
-                          <div className="space-y-2">
-                            <Label>Project</Label>
-                            <div className="p-3 bg-gray-50 rounded-md border">
-                              {userData.project.name}
-                            </div>
-                          </div>
-                        )}
                       </div>
                     </div>
                   </>
@@ -303,4 +295,4 @@ const Profile = () => {
   );
 };
 
-export default Profile; 
+export default Profile;

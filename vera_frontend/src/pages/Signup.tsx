@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Eye, EyeOff, Loader2, User, Shield } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/authStore';
 
 const signupSchema = z.object({
   name: z.string().min(2, 'Name must be at least 2 characters'),
@@ -29,7 +29,7 @@ const Signup: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState<string>('');
-  const { signup, isLoading } = useAuth();
+  const { signup, isLoading } = useAuthStore();
   const navigate = useNavigate();
 
   const {
@@ -48,6 +48,8 @@ const Signup: React.FC = () => {
     try {
       setError('');
       await signup(data.name, data.email, data.password, data.role);
+      // Navigate to home page after successful signup
+      navigate('/');
     } catch (err: any) {
       setError(err.message);
     }
@@ -69,7 +71,7 @@ const Signup: React.FC = () => {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            
+
             <div className="space-y-2">
               <Label htmlFor="name">Full Name</Label>
               <Input
@@ -211,4 +213,4 @@ const Signup: React.FC = () => {
   );
 };
 
-export default Signup; 
+export default Signup;

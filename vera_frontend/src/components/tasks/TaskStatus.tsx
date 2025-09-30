@@ -2,7 +2,7 @@
 import React from 'react';
 import { cn } from '@/lib/utils';
 
-type TaskStatusType = 'pending' | 'in-progress' | 'completed' | 'cancelled';
+type TaskStatusType = 'todo' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
 
 interface TaskStatusProps {
   status: TaskStatusType;
@@ -10,11 +10,15 @@ interface TaskStatusProps {
 
 const TaskStatus: React.FC<TaskStatusProps> = ({ status }) => {
   const statusConfig = {
-    'pending': {
-      label: 'Pending',
+      'todo': {
+    label: 'To Do',
       className: 'bg-amber-100 text-amber-800'
     },
-    'in-progress': {
+    'assigned': {
+      label: 'Assigned',
+      className: 'bg-purple-100 text-purple-800'
+    },
+    'in_progress': {
       label: 'In Progress',
       className: 'bg-blue-100 text-blue-800'
     },
@@ -27,9 +31,9 @@ const TaskStatus: React.FC<TaskStatusProps> = ({ status }) => {
       className: 'bg-red-100 text-red-800'
     }
   };
-  
+
   const config = statusConfig[status];
-  
+
   return (
     <span className={cn("status-pill", config.className)}>
       {config.label}

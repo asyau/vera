@@ -38,8 +38,8 @@ export class ElevenLabsService {
       });
       this.voices = response.data.voices;
       // Select a professional-sounding voice by default
-      this.selectedVoiceId = this.voices.find(voice => 
-        voice.name.toLowerCase().includes('professional') || 
+      this.selectedVoiceId = this.voices.find(voice =>
+        voice.name.toLowerCase().includes('professional') ||
         voice.name.toLowerCase().includes('assistant')
       )?.voice_id || this.voices[0]?.voice_id || '';
     } catch (error) {
@@ -89,4 +89,4 @@ export class ElevenLabsService {
   public setVoice(voiceId: string) {
     this.selectedVoiceId = voiceId;
   }
-} 
+}

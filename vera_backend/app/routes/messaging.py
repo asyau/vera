@@ -1,22 +1,22 @@
-from fastapi import APIRouter, HTTPException, Depends
-from sqlalchemy.orm import Session, joinedload
-from typing import List, Optional
+"""
+Enhanced Messaging Routes using Communication Service
+"""
+from typing import Any, Dict, List, Optional
+from uuid import UUID
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel
-import uuid
-from datetime import datetime
-import logging
+from sqlalchemy.orm import Session
 
-from app.models.sql_models import User, Conversation, Message, Team
-from app.models.pydantic_models import UserResponse, MessageResponse
+from app.core.api_gateway import AuthenticationMiddleware
+from app.core.exceptions import ViraException
 from app.database import get_db
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
+from app.services.communication_service import CommunicationService
 
 router = APIRouter()
 
-# Additional models for enhanced messaging features
+
+# Additional models for messaging features
 class Contact(BaseModel):
     id: str
     name: str
@@ -29,68 +29,98 @@ class Contact(BaseModel):
     last_seen: Optional[str] = None
     can_message: bool = True
 
+
+# Request/Response Models
 class CreateConversationRequest(BaseModel):
-    type: str  # 'direct' | 'group'
-    name: Optional[str] = None
-    participants: List[str]  # List of user IDs
+    title: str
+    type: str = "direct"  # direct, group, trichat
+    participants: Optional[List[str]] = None
+
 
 class SendMessageRequest(BaseModel):
-    conversation_id: str
     content: str
-    attachments: Optional[List[dict]] = None
+    type: str = "text"
+    metadata: Optional[Dict[str, Any]] = None
 
-# Helper function to check hierarchy-based permissions
-def can_message_user(current_user: User, target_user: User, db: Session) -> bool:
-    """
-    Check if current_user can message target_user based on hierarchy rules.
-    
-    Rules:
-    - Employees can message their peers and direct supervisors
-    - Supervisors can message anyone in their team and their own supervisors
-    - Cannot message users higher up in hierarchy unless they're your direct supervisor
-    """
-    # Same user
+
+class ConversationResponse(BaseModel):
+    id: str
+    title: str
+    type: str
+    creator_id: str
+    participants: List[str]
+    last_message_at: Optional[str]
+    created_at: str
+    updated_at: str
+
+    class Config:
+        from_attributes = True
+
+
+class MessageResponse(BaseModel):
+    id: str
+    conversation_id: str
+    sender_id: str
+    content: str
+    type: str
+    timestamp: str
+    is_read: bool
+    metadata: Optional[Dict[str, Any]]
+
+    class Config:
+        from_attributes = True
+
+
+# Helper function for contact permissions
+def can_message_user(current_user, target_user) -> bool:
+    """Check if current user can message target user based on hierarchy"""
     if current_user.id == target_user.id:
         return False
-    
+
     # Same team - always allowed
     if current_user.team_id == target_user.team_id:
         return True
-    
-    # If current user is supervisor, they can message employees
-    if current_user.role == 'supervisor' and target_user.role == 'employee':
+
+    # Supervisor can message employees
+    if current_user.role == "supervisor" and target_user.role == "employee":
         return True
-    
-    # If current user is employee, they can only message their direct supervisor
-    if current_user.role == 'employee' and target_user.role == 'supervisor':
-        # Check if target_user is the supervisor of current_user's team
-        team = db.query(Team).filter(Team.id == current_user.team_id).first()
-        if team and team.supervisor_id == target_user.id:
-            return True
-    
+
+    # Employee can message their supervisor
+    if current_user.role == "employee" and target_user.role == "supervisor":
+        return True
+
     return False
 
+
+# Routes
 @router.get("/contacts", response_model=List[Contact])
-async def get_contacts(current_user_id: str, db: Session = Depends(get_db)):
-    """Get all users as contacts with hierarchy-based permissions."""
+async def get_contacts(
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Get all users as contacts with hierarchy-based permissions"""
     try:
+        from sqlalchemy.orm import joinedload
+
+        from app.models.sql_models import User
+
         # Get current user
-        current_user = db.query(User).filter(User.id == uuid.UUID(current_user_id)).first()
+        current_user = db.query(User).filter(User.id == UUID(current_user_id)).first()
         if not current_user:
             raise HTTPException(status_code=404, detail="User not found")
-        
+
         # Get all users with their relationships
-        users = db.query(User).options(
-            joinedload(User.company),
-            joinedload(User.team),
-            joinedload(User.project)
-        ).all()
-        
+        users = (
+            db.query(User)
+            .options(joinedload(User.company), joinedload(User.team))
+            .all()
+        )
+
         contacts = []
         for user in users:
             if user.id != current_user.id:  # Exclude self
-                can_message = can_message_user(current_user, user, db)
-                
+                can_message = can_message_user(current_user, user)
+
                 contact = Contact(
                     id=str(user.id),
                     name=user.name,
@@ -100,171 +130,324 @@ async def get_contacts(current_user_id: str, db: Session = Depends(get_db)):
                     team_name=user.team.name if user.team else None,
                     company_name=user.company.name if user.company else None,
                     is_online=True,  # Mock online status for now
-                    can_message=can_message
+                    can_message=can_message,
                 )
                 contacts.append(contact)
-        
+
         return contacts
-    except Exception as e:
-        logger.error(f"Error fetching contacts: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching contacts: {str(e)}")
 
-@router.get("/conversations/{conversation_id}/messages")
-async def get_messages(conversation_id: str, db: Session = Depends(get_db)):
-    """Get all messages for a conversation."""
-    try:
-        # First verify the conversation exists
-        conversation = db.query(Conversation).filter(Conversation.id == uuid.UUID(conversation_id)).first()
-        if not conversation:
-            raise HTTPException(status_code=404, detail="Conversation not found")
-        
-        messages = db.query(Message).options(
-            joinedload(Message.sender),
-            joinedload(Message.conversation)
-        ).filter(Message.conversation_id == uuid.UUID(conversation_id)).order_by(Message.timestamp).all()
-        
-        return [MessageResponse.from_orm(message) for message in messages]
     except Exception as e:
-        logger.error(f"Error fetching messages for conversation {conversation_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error fetching messages: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to get contacts: {str(e)}")
 
-@router.post("/conversations/{conversation_id}/messages")
-async def send_message(
-    conversation_id: str, 
-    request: SendMessageRequest,
-    current_user_id: str,
-    db: Session = Depends(get_db)
-):
-    """Send a message to a conversation."""
-    try:
-        # Get current user
-        current_user = db.query(User).filter(User.id == uuid.UUID(current_user_id)).first()
-        if not current_user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Verify the conversation exists
-        conversation = db.query(Conversation).filter(Conversation.id == uuid.UUID(conversation_id)).first()
-        if not conversation:
-            raise HTTPException(status_code=404, detail="Conversation not found")
-        
-        # Create new message
-        new_message = Message(
-            id=uuid.uuid4(),
-            conversation_id=uuid.UUID(conversation_id),
-            sender_id=current_user.id,
-            content=request.content,
-            type="text",  # Default to text, could be enhanced to support other types
-            is_read=False
-        )
-        
-        db.add(new_message)
-        db.commit()
-        db.refresh(new_message)
-        
-        # Update conversation's last_message_at
-        conversation.last_message_at = new_message.timestamp
-        db.commit()
-        
-        # Check for @Vira mentions and trigger AI response if needed
-        if "@vira" in request.content.lower() or "@vira" in request.content:
-            # TODO: Integrate with AI service to generate response
-            # This would call the existing AI service endpoints
-            pass
-        
-        return MessageResponse.from_orm(new_message)
-    except Exception as e:
-        logger.error(f"Error sending message to conversation {conversation_id}: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
 
-@router.post("/conversations", response_model=dict)
+@router.post("/conversations", response_model=ConversationResponse)
 async def create_conversation(
     request: CreateConversationRequest,
-    current_user_id: str,
-    db: Session = Depends(get_db)
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
 ):
-    """Create a new conversation with hierarchy-based permissions."""
+    """Create a new conversation"""
     try:
-        # Get current user
-        current_user = db.query(User).filter(User.id == uuid.UUID(current_user_id)).first()
-        if not current_user:
-            raise HTTPException(status_code=404, detail="User not found")
-        
-        # Validate participants
+        comm_service = CommunicationService(db)
+
+        # Convert participant strings to UUIDs
         participant_uuids = []
-        for participant_id in request.participants:
-            try:
-                participant_uuid = uuid.UUID(participant_id)
-                user = db.query(User).filter(User.id == participant_uuid).first()
-                if not user:
-                    raise HTTPException(status_code=404, detail=f"User {participant_id} not found")
-                
-                # Check hierarchy permissions
-                if not can_message_user(current_user, user, db):
-                    raise HTTPException(
-                        status_code=403, 
-                        detail=f"Cannot create conversation with {user.name} due to hierarchy restrictions"
-                    )
-                
-                participant_uuids.append(participant_uuid)
-            except ValueError:
-                raise HTTPException(status_code=400, detail=f"Invalid user ID format: {participant_id}")
-        
-        # Add current user to participants if not already included
-        if current_user.id not in participant_uuids:
-            participant_uuids.append(current_user.id)
-        
-        # Generate conversation name for direct messages
-        conversation_name = request.name
-        if request.type == "direct" and len(participant_uuids) == 2:
-            other_user_id = next(pid for pid in participant_uuids if pid != current_user.id)
-            other_user = db.query(User).filter(User.id == other_user_id).first()
-            conversation_name = other_user.name if other_user else "Unknown User"
-        elif not conversation_name:
-            conversation_name = f"Group Chat ({len(participant_uuids)} members)"
-        
-        # Create conversation
-        new_conversation = Conversation(
-            id=uuid.uuid4(),
-            type=request.type,
-            participant_ids=participant_uuids,
-            created_at=datetime.now(),
-            last_message_at=datetime.now()
+        if request.participants:
+            participant_uuids = [UUID(pid) for pid in request.participants]
+
+        conversation = comm_service.create_conversation(
+            creator_id=UUID(current_user_id),
+            title=request.title,
+            conversation_type=request.type,
+            participants=participant_uuids,
         )
-        
-        db.add(new_conversation)
-        db.commit()
-        db.refresh(new_conversation)
-        
-        return {
-            "id": str(new_conversation.id),
-            "type": new_conversation.type,
-            "name": conversation_name,
-            "participants": [str(pid) for pid in participant_uuids],
-            "created_at": new_conversation.created_at.isoformat(),
-            "updated_at": new_conversation.last_message_at.isoformat()
-        }
-    except HTTPException:
-        raise
+
+        return ConversationResponse.from_orm(conversation)
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
     except Exception as e:
-        logger.error(f"Error creating conversation: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error creating conversation: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create conversation: {str(e)}"
+        )
+
+
+@router.get("/conversations", response_model=List[ConversationResponse])
+async def get_conversations(
+    conversation_type: Optional[str] = Query(
+        None, description="Filter by conversation type"
+    ),
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Get user's conversations"""
+    try:
+        comm_service = CommunicationService(db)
+
+        conversations = comm_service.get_user_conversations(
+            user_id=UUID(current_user_id), conversation_type=conversation_type
+        )
+
+        return [ConversationResponse.from_orm(conv) for conv in conversations]
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get conversations: {str(e)}"
+        )
+
+
+@router.get(
+    "/conversations/{conversation_id}/messages", response_model=List[MessageResponse]
+)
+async def get_messages(
+    conversation_id: UUID,
+    limit: int = Query(50, description="Number of messages to retrieve"),
+    offset: int = Query(0, description="Number of messages to skip"),
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Get messages from a conversation"""
+    try:
+        comm_service = CommunicationService(db)
+
+        messages = comm_service.get_conversation_messages(
+            conversation_id=conversation_id,
+            requester_id=UUID(current_user_id),
+            limit=limit,
+            offset=offset,
+        )
+
+        return [MessageResponse.from_orm(msg) for msg in messages]
+
+    except ViraException as e:
+        raise HTTPException(
+            status_code=404 if "not found" in e.message.lower() else 400,
+            detail=e.message,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get messages: {str(e)}")
+
+
+@router.post(
+    "/conversations/{conversation_id}/messages", response_model=MessageResponse
+)
+async def send_message(
+    conversation_id: UUID,
+    request: SendMessageRequest,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Send a message to a conversation"""
+    try:
+        comm_service = CommunicationService(db)
+
+        message = comm_service.send_message(
+            conversation_id=conversation_id,
+            sender_id=UUID(current_user_id),
+            content=request.content,
+            message_type=request.type,
+            metadata=request.metadata,
+        )
+
+        return MessageResponse.from_orm(message)
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to send message: {str(e)}")
+
+
+@router.post("/conversations/{conversation_id}/read")
+async def mark_messages_as_read(
+    conversation_id: UUID,
+    message_ids: Optional[List[str]] = None,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Mark messages as read"""
+    try:
+        comm_service = CommunicationService(db)
+
+        # Convert string IDs to UUIDs if provided
+        message_uuids = None
+        if message_ids:
+            message_uuids = [UUID(mid) for mid in message_ids]
+
+        count = comm_service.mark_messages_as_read(
+            conversation_id=conversation_id,
+            user_id=UUID(current_user_id),
+            message_ids=message_uuids,
+        )
+
+        return {"message": f"Marked {count} messages as read"}
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to mark messages as read: {str(e)}"
+        )
+
+
+@router.get("/unread-count")
+async def get_unread_count(
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Get total unread message count"""
+    try:
+        comm_service = CommunicationService(db)
+
+        count = comm_service.get_unread_message_count(UUID(current_user_id))
+
+        return {"unread_count": count}
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get unread count: {str(e)}"
+        )
+
+
+@router.get("/search")
+async def search_messages(
+    q: str = Query(..., description="Search query"),
+    conversation_id: Optional[UUID] = Query(
+        None, description="Search within specific conversation"
+    ),
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Search messages"""
+    try:
+        comm_service = CommunicationService(db)
+
+        messages = comm_service.search_messages(
+            user_id=UUID(current_user_id), query=q, conversation_id=conversation_id
+        )
+
+        return [MessageResponse.from_orm(msg) for msg in messages]
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to search messages: {str(e)}"
+        )
+
+
+@router.post("/conversations/trichat", response_model=ConversationResponse)
+async def create_trichat_conversation(
+    title: str,
+    participant_ids: List[str],
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Create a TriChat conversation"""
+    try:
+        comm_service = CommunicationService(db)
+
+        # Convert participant strings to UUIDs
+        participant_uuids = [UUID(pid) for pid in participant_ids]
+
+        conversation = comm_service.create_trichat_conversation(
+            creator_id=UUID(current_user_id),
+            participant_ids=participant_uuids,
+            title=title,
+        )
+
+        return ConversationResponse.from_orm(conversation)
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to create TriChat: {str(e)}"
+        )
+
+
+@router.post("/conversations/{conversation_id}/participants/{participant_id}")
+async def add_participant(
+    conversation_id: UUID,
+    participant_id: UUID,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Add participant to conversation"""
+    try:
+        comm_service = CommunicationService(db)
+
+        conversation = comm_service.add_participant_to_conversation(
+            conversation_id=conversation_id,
+            new_participant_id=participant_id,
+            requester_id=UUID(current_user_id),
+        )
+
+        return {"message": "Participant added successfully"}
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to add participant: {str(e)}"
+        )
+
+
+@router.delete("/conversations/{conversation_id}/participants/{participant_id}")
+async def remove_participant(
+    conversation_id: UUID,
+    participant_id: UUID,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Remove participant from conversation"""
+    try:
+        comm_service = CommunicationService(db)
+
+        conversation = comm_service.remove_participant_from_conversation(
+            conversation_id=conversation_id,
+            participant_id=participant_id,
+            requester_id=UUID(current_user_id),
+        )
+
+        return {"message": "Participant removed successfully"}
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to remove participant: {str(e)}"
+        )
+
 
 @router.get("/users/{user_id}/permissions")
 async def get_user_permissions(
-    user_id: str,
-    current_user_id: str,
-    db: Session = Depends(get_db)
+    user_id: UUID,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
 ):
-    """Get messaging permissions for a specific user."""
+    """Get messaging permissions for a specific user"""
     try:
-        current_user = db.query(User).filter(User.id == uuid.UUID(current_user_id)).first()
-        target_user = db.query(User).filter(User.id == uuid.UUID(user_id)).first()
-        
+        from sqlalchemy.orm import joinedload
+
+        from app.models.sql_models import User
+
+        current_user = db.query(User).filter(User.id == UUID(current_user_id)).first()
+        target_user = (
+            db.query(User)
+            .options(joinedload(User.team))
+            .filter(User.id == user_id)
+            .first()
+        )
+
         if not current_user or not target_user:
             raise HTTPException(status_code=404, detail="User not found")
-        
-        can_message = can_message_user(current_user, target_user, db)
-        
+
+        can_message = can_message_user(current_user, target_user)
+
         return {
             "can_message": can_message,
             "reason": "Hierarchy restrictions" if not can_message else "Allowed",
@@ -272,10 +455,69 @@ async def get_user_permissions(
                 "id": str(target_user.id),
                 "name": target_user.name,
                 "role": target_user.role,
-                "team_name": target_user.team.name if target_user.team else None
-            }
+                "team_name": target_user.team.name if target_user.team else None,
+            },
         }
-    except Exception as e:
-        logger.error(f"Error getting user permissions: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error getting user permissions: {str(e)}") 
 
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get user permissions: {str(e)}"
+        )
+
+
+@router.put("/conversations/{conversation_id}", response_model=ConversationResponse)
+async def update_conversation(
+    conversation_id: UUID,
+    title: Optional[str] = None,
+    participants: Optional[List[str]] = None,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Update a conversation"""
+    try:
+        comm_service = CommunicationService(db)
+
+        update_data = {}
+        if title is not None:
+            update_data["title"] = title
+        if participants is not None:
+            update_data["participants"] = [UUID(pid) for pid in participants]
+
+        conversation = comm_service.update_conversation(
+            conversation_id=conversation_id,
+            update_data=update_data,
+            requester_id=UUID(current_user_id),
+        )
+
+        return ConversationResponse.from_orm(conversation)
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to update conversation: {str(e)}"
+        )
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation(
+    conversation_id: UUID,
+    current_user_id: str = Depends(AuthenticationMiddleware.get_current_user_id),
+    db: Session = Depends(get_db),
+):
+    """Delete a conversation"""
+    try:
+        comm_service = CommunicationService(db)
+
+        success = comm_service.delete_conversation(
+            conversation_id=conversation_id, requester_id=UUID(current_user_id)
+        )
+
+        return {"message": "Conversation deleted successfully"}
+
+    except ViraException as e:
+        raise HTTPException(status_code=400, detail=e.message)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to delete conversation: {str(e)}"
+        )

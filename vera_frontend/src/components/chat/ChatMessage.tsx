@@ -12,10 +12,10 @@ interface ChatMessageProps {
   isTyping?: boolean;
 }
 
-const ChatMessage: React.FC<ChatMessageProps> = ({ 
-  content, 
-  type, 
-  name, 
+const ChatMessage: React.FC<ChatMessageProps> = ({
+  content,
+  type,
+  name,
   timestamp = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
   isTyping = false
 }) => {
@@ -24,9 +24,9 @@ const ChatMessage: React.FC<ChatMessageProps> = ({
     'ai': 'ai-bubble',
     'employee': 'employee-bubble'
   }[type];
-  
+
   const showName = type !== 'user' && name;
-  
+
   return (
     <div className={cn("flex flex-col", type === 'user' ? 'items-end' : 'items-start')}>
       {showName && (
