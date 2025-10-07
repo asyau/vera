@@ -1,0 +1,29 @@
+#!/bin/sh
+set -euo pipefail
+
+# Block committing files that look like secrets
+check_paths='(\.env($|\.|/))|(\.(pem|key|p12|pfx|der|crt|cer|jks|keystore)$)|((^|/)id_rsa$)|((^|/)id_dsa$)|((^|/)\.ssh(/|$))|(serviceAccount.*\.json$)|(credentials.*\.json$)'
+
+STAGED=$(git diff --cached --name-only)
+
+if echo "$STAGED" | grep -E "$check_paths" >/dev/null; then
+  echo "Error: Attempting to commit files that look like secrets:" >&2
+  echo "$STAGED" | grep -E "$check_paths" >&2
+  echo "Aborting commit. Add to .gitignore or remove from index (git rm --cached)." >&2
+  exit 1
+fi
+
+# Optional: block obvious secrets in content
+if command -v grep >/dev/null 2>&1; then
+  for f in $STAGED; do
+    if [ -f "$f" ]; then
+      if git show :"$f" | grep -E '(AKIA[0-9A-Z]{16}|-----BEGIN [A-Z ]+PRIVATE KEY-----|api[_-]?key|secret|token|password)' >/dev/null; then
+        echo "Warning: Potential secret-like content in $f" >&2
+        echo "If this is intentional and safe, commit with --no-verify." >&2
+        exit 1
+      fi
+    fi
+  done
+fi
+
+exit 0
