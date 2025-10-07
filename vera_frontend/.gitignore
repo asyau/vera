@@ -22,3 +22,25 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Environment files
+.env
+.env.*
+.envrc
+
+# Secrets and keys
+*.pem
+*.key
+*.p12
+*.pfx
+*.der
+*.crt
+*.cer
+*.jks
+*.keystore
+id_rsa
+id_dsa
+.ssh/
+*serviceAccount*.json
+*credentials*.json
+secrets/
