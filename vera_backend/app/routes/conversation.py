@@ -32,7 +32,7 @@ async def get_conversations(db: Session = Depends(get_db)):
         )
         return ConversationListResponse(
             conversations=[
-                ConversationResponse.from_orm(conversation)
+                ConversationResponse.model_validate(conversation)
                 for conversation in conversations
             ],
             total=len(conversations),
@@ -58,7 +58,7 @@ async def get_conversation(conversation_id: str, db: Session = Depends(get_db)):
         if not conversation:
             raise HTTPException(status_code=404, detail="Conversation not found")
 
-        return ConversationResponse.from_orm(conversation)
+        return ConversationResponse.model_validate(conversation)
     except Exception as e:
         logger.error(f"Error fetching conversation {conversation_id}: {str(e)}")
         raise HTTPException(
@@ -80,7 +80,7 @@ async def get_project_conversations(project_id: str, db: Session = Depends(get_d
         )
         return ConversationListResponse(
             conversations=[
-                ConversationResponse.from_orm(conversation)
+                ConversationResponse.model_validate(conversation)
                 for conversation in conversations
             ],
             total=len(conversations),
@@ -104,7 +104,7 @@ async def get_team_conversations(team_id: str, db: Session = Depends(get_db)):
         )
         return ConversationListResponse(
             conversations=[
-                ConversationResponse.from_orm(conversation)
+                ConversationResponse.model_validate(conversation)
                 for conversation in conversations
             ],
             total=len(conversations),
@@ -169,7 +169,7 @@ async def create_conversation(
         logger.info(
             f"Created conversation: {conversation.type} with ID: {conversation.id}"
         )
-        return ConversationResponse.from_orm(conversation)
+        return ConversationResponse.model_validate(conversation)
 
     except Exception as e:
         logger.error(f"Error creating conversation: {str(e)}")
@@ -237,7 +237,7 @@ async def update_conversation(
             .first()
         )
 
-        return ConversationResponse.from_orm(conversation)
+        return ConversationResponse.model_validate(conversation)
 
     except Exception as e:
         logger.error(f"Error updating conversation {conversation_id}: {str(e)}")

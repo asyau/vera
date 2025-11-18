@@ -73,7 +73,7 @@ async def get_current_user(
         user_service = UserService(db)
         user = user_service.repository.get_or_raise(UUID(current_user_id))
 
-        return UserResponse.from_orm(user)
+        return UserResponse.model_validate(user)
 
     except ViraException as e:
         raise HTTPException(
@@ -95,13 +95,13 @@ async def update_current_user(
         user_service = UserService(db)
 
         # Filter out None values
-        update_data = {k: v for k, v in request.dict().items() if v is not None}
+        update_data = {k: v for k, v in request.model_dump().items() if v is not None}
 
         user = user_service.update_user_profile(
             user_id=UUID(current_user_id), update_data=update_data
         )
 
-        return UserResponse.from_orm(user)
+        return UserResponse.model_validate(user)
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -203,7 +203,7 @@ async def get_user(
         user_service = UserService(db)
         user = user_service.repository.get_or_raise(user_id)
 
-        return UserResponse.from_orm(user)
+        return UserResponse.model_validate(user)
 
     except ViraException as e:
         raise HTTPException(
@@ -231,7 +231,7 @@ async def assign_user_to_team(
             user_id=user_id, team_id=team_id, requester_role="supervisor"
         )
 
-        return UserResponse.from_orm(user)
+        return UserResponse.model_validate(user)
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -285,7 +285,7 @@ async def search_users(
 
         users = user_service.search_users(query=q, company_id=current_user.company_id)
 
-        return [UserResponse.from_orm(user) for user in users]
+        return [UserResponse.model_validate(user) for user in users]
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -314,7 +314,7 @@ async def create_user(
             preferences=request.preferences,
         )
 
-        return UserResponse.from_orm(user)
+        return UserResponse.model_validate(user)
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -336,7 +336,7 @@ async def update_user(
         user_service = UserService(db)
 
         # Filter out None values
-        update_data = {k: v for k, v in request.dict().items() if v is not None}
+        update_data = {k: v for k, v in request.model_dump().items() if v is not None}
 
         user = user_service.update_user_profile(
             user_id=user_id,
@@ -344,7 +344,7 @@ async def update_user(
             requester_role=current_user_token.get("role"),
         )
 
-        return UserResponse.from_orm(user)
+        return UserResponse.model_validate(user)
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)

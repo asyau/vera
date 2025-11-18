@@ -27,7 +27,7 @@ async def get_companies(db: Session = Depends(get_db)):
     try:
         companies = db.query(Company).all()
         return CompanyListResponse(
-            companies=[CompanyResponse.from_orm(company) for company in companies],
+            companies=[CompanyResponse.model_validate(company) for company in companies],
             total=len(companies),
         )
     except Exception as e:
@@ -46,7 +46,7 @@ async def get_company(company_id: str, db: Session = Depends(get_db)):
         if not company:
             raise HTTPException(status_code=404, detail="Company not found")
 
-        return CompanyResponse.from_orm(company)
+        return CompanyResponse.model_validate(company)
     except Exception as e:
         logger.error(f"Error fetching company {company_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching company: {str(e)}")
@@ -67,7 +67,7 @@ async def create_company(company_info: CompanyCreate, db: Session = Depends(get_
         db.refresh(company)
 
         logger.info(f"Created company: {company.name} with ID: {company.id}")
-        return CompanyResponse.from_orm(company)
+        return CompanyResponse.model_validate(company)
 
     except Exception as e:
         logger.error(f"Error creating company: {str(e)}")
@@ -95,7 +95,7 @@ async def update_company(
         db.commit()
         db.refresh(company)
 
-        return CompanyResponse.from_orm(company)
+        return CompanyResponse.model_validate(company)
 
     except Exception as e:
         logger.error(f"Error updating company {company_id}: {str(e)}")

@@ -27,7 +27,7 @@ async def get_projects(db: Session = Depends(get_db)):
     try:
         projects = db.query(Project).options(joinedload(Project.company)).all()
         return ProjectListResponse(
-            projects=[ProjectResponse.from_orm(project) for project in projects],
+            projects=[ProjectResponse.model_validate(project) for project in projects],
             total=len(projects),
         )
     except Exception as e:
@@ -51,7 +51,7 @@ async def get_project(project_id: str, db: Session = Depends(get_db)):
         if not project:
             raise HTTPException(status_code=404, detail="Project not found")
 
-        return ProjectResponse.from_orm(project)
+        return ProjectResponse.model_validate(project)
     except Exception as e:
         logger.error(f"Error fetching project {project_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching project: {str(e)}")
@@ -68,7 +68,7 @@ async def get_company_projects(company_id: str, db: Session = Depends(get_db)):
             .all()
         )
         return ProjectListResponse(
-            projects=[ProjectResponse.from_orm(project) for project in projects],
+            projects=[ProjectResponse.model_validate(project) for project in projects],
             total=len(projects),
         )
     except Exception as e:
@@ -109,7 +109,7 @@ async def create_project(project_info: ProjectCreate, db: Session = Depends(get_
         )
 
         logger.info(f"Created project: {project.name} with ID: {project.id}")
-        return ProjectResponse.from_orm(project)
+        return ProjectResponse.model_validate(project)
 
     except Exception as e:
         logger.error(f"Error creating project: {str(e)}")
@@ -155,7 +155,7 @@ async def update_project(
             .first()
         )
 
-        return ProjectResponse.from_orm(project)
+        return ProjectResponse.model_validate(project)
 
     except Exception as e:
         logger.error(f"Error updating project {project_id}: {str(e)}")

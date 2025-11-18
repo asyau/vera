@@ -89,7 +89,7 @@ async def create_task(
             tags=request.tags,
         )
 
-        return TaskResponse.from_orm(task)
+        return TaskResponse.model_validate(task)
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -116,7 +116,7 @@ async def get_tasks(
             include_assigned=include_assigned,
         )
 
-        return [TaskResponse.from_orm(task) for task in tasks]
+        return [TaskResponse.model_validate(task) for task in tasks]
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -135,7 +135,7 @@ async def get_task(
         task_service = TaskService(db)
         task = task_service.repository.get_or_raise(task_id)
 
-        return TaskResponse.from_orm(task)
+        return TaskResponse.model_validate(task)
 
     except ViraException as e:
         raise HTTPException(
@@ -158,13 +158,13 @@ async def update_task(
         task_service = TaskService(db)
 
         # Filter out None values
-        update_data = {k: v for k, v in request.dict().items() if v is not None}
+        update_data = {k: v for k, v in request.model_dump().items() if v is not None}
 
         task = task_service.update_task(
             task_id=task_id, update_data=update_data, requester_id=UUID(current_user_id)
         )
 
-        return TaskResponse.from_orm(task)
+        return TaskResponse.model_validate(task)
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -187,7 +187,7 @@ async def assign_task(
             task_id=task_id, assignee_id=assignee_id, requester_id=UUID(current_user_id)
         )
 
-        return TaskResponse.from_orm(task)
+        return TaskResponse.model_validate(task)
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -209,7 +209,7 @@ async def complete_task(
             task_id=task_id, requester_id=UUID(current_user_id)
         )
 
-        return TaskResponse.from_orm(task)
+        return TaskResponse.model_validate(task)
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -230,7 +230,7 @@ async def get_overdue_tasks(
 
         tasks = task_service.get_overdue_tasks(user_id=UUID(current_user_id))
 
-        return [TaskResponse.from_orm(task) for task in tasks]
+        return [TaskResponse.model_validate(task) for task in tasks]
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -254,7 +254,7 @@ async def get_upcoming_tasks(
             user_id=UUID(current_user_id), days=days
         )
 
-        return [TaskResponse.from_orm(task) for task in tasks]
+        return [TaskResponse.model_validate(task) for task in tasks]
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -276,7 +276,7 @@ async def search_tasks(
 
         tasks = task_service.search_tasks(query=q, user_id=UUID(current_user_id))
 
-        return [TaskResponse.from_orm(task) for task in tasks]
+        return [TaskResponse.model_validate(task) for task in tasks]
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -321,7 +321,7 @@ async def get_team_tasks(
         # Get all team members and their tasks
         team_tasks = task_service.repository.get_by_filters(team_id=str(team_id))
 
-        return [TaskResponse.from_orm(task) for task in team_tasks]
+        return [TaskResponse.model_validate(task) for task in team_tasks]
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)

@@ -36,7 +36,7 @@ async def get_teams(db: Session = Depends(get_db)):
             .all()
         )
         return TeamListResponse(
-            teams=[TeamResponse.from_orm(team) for team in teams], total=len(teams)
+            teams=[TeamResponse.model_validate(team) for team in teams], total=len(teams)
         )
     except Exception as e:
         logger.error(f"Error fetching teams: {str(e)}")
@@ -62,7 +62,7 @@ async def get_team(team_id: str, db: Session = Depends(get_db)):
         if not team:
             raise HTTPException(status_code=404, detail="Team not found")
 
-        return TeamResponse.from_orm(team)
+        return TeamResponse.model_validate(team)
     except Exception as e:
         logger.error(f"Error fetching team {team_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching team: {str(e)}")
@@ -84,7 +84,7 @@ async def get_company_teams(company_id: str, db: Session = Depends(get_db)):
             .all()
         )
         return TeamListResponse(
-            teams=[TeamResponse.from_orm(team) for team in teams], total=len(teams)
+            teams=[TeamResponse.model_validate(team) for team in teams], total=len(teams)
         )
     except Exception as e:
         logger.error(f"Error fetching teams for company {company_id}: {str(e)}")
@@ -107,7 +107,7 @@ async def get_project_teams(project_id: str, db: Session = Depends(get_db)):
             .all()
         )
         return TeamListResponse(
-            teams=[TeamResponse.from_orm(team) for team in teams], total=len(teams)
+            teams=[TeamResponse.model_validate(team) for team in teams], total=len(teams)
         )
     except Exception as e:
         logger.error(f"Error fetching teams for project {project_id}: {str(e)}")
@@ -165,7 +165,7 @@ async def create_team(team_info: TeamCreate, db: Session = Depends(get_db)):
         )
 
         logger.info(f"Created team: {team.name} with ID: {team.id}")
-        return TeamResponse.from_orm(team)
+        return TeamResponse.model_validate(team)
 
     except Exception as e:
         logger.error(f"Error creating team: {str(e)}")
@@ -228,7 +228,7 @@ async def update_team(
             .first()
         )
 
-        return TeamResponse.from_orm(team)
+        return TeamResponse.model_validate(team)
 
     except Exception as e:
         logger.error(f"Error updating team {team_id}: {str(e)}")

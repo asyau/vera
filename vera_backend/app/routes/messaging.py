@@ -162,7 +162,7 @@ async def create_conversation(
             participants=participant_uuids,
         )
 
-        return ConversationResponse.from_orm(conversation)
+        return ConversationResponse.model_validate(conversation)
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -188,7 +188,7 @@ async def get_conversations(
             user_id=UUID(current_user_id), conversation_type=conversation_type
         )
 
-        return [ConversationResponse.from_orm(conv) for conv in conversations]
+        return [ConversationResponse.model_validate(conv) for conv in conversations]
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -219,7 +219,7 @@ async def get_messages(
             offset=offset,
         )
 
-        return [MessageResponse.from_orm(msg) for msg in messages]
+        return [MessageResponse.model_validate(msg) for msg in messages]
 
     except ViraException as e:
         raise HTTPException(
@@ -251,7 +251,7 @@ async def send_message(
             metadata=request.metadata,
         )
 
-        return MessageResponse.from_orm(message)
+        return MessageResponse.model_validate(message)
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -329,7 +329,7 @@ async def search_messages(
             user_id=UUID(current_user_id), query=q, conversation_id=conversation_id
         )
 
-        return [MessageResponse.from_orm(msg) for msg in messages]
+        return [MessageResponse.model_validate(msg) for msg in messages]
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -359,7 +359,7 @@ async def create_trichat_conversation(
             title=title,
         )
 
-        return ConversationResponse.from_orm(conversation)
+        return ConversationResponse.model_validate(conversation)
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
@@ -489,7 +489,7 @@ async def update_conversation(
             requester_id=UUID(current_user_id),
         )
 
-        return ConversationResponse.from_orm(conversation)
+        return ConversationResponse.model_validate(conversation)
 
     except ViraException as e:
         raise HTTPException(status_code=400, detail=e.message)
