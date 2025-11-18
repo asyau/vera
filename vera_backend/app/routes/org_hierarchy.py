@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.core.api_gateway import AuthenticationMiddleware
 from app.database import get_db
 from app.models.sql_models import Company, Project, Team, Task, User
+from app.services.websocket_service import connection_manager
 
 router = APIRouter()
 
@@ -214,7 +215,7 @@ async def get_organization_graph(
                             task_count=total_tasks,
                             completed_tasks=completed,
                             overdue_tasks=overdue,
-                            online=False,  # TODO: Check from WebSocket connection_manager
+                            online=connection_manager.is_user_online(str(user.id)),
                         )
                     )
 

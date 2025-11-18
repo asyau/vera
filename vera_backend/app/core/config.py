@@ -36,6 +36,14 @@ class Settings(BaseSettings):
     langchain_verbose: Optional[str] = os.getenv("LANGCHAIN_VERBOSE")
     langchain_debug: Optional[str] = os.getenv("LANGCHAIN_DEBUG")
 
+    # Email Configuration
+    smtp_host: Optional[str] = os.getenv("SMTP_HOST", "smtp.gmail.com")
+    smtp_port: int = int(os.getenv("SMTP_PORT", "587"))
+    smtp_username: Optional[str] = os.getenv("SMTP_USERNAME")
+    smtp_password: Optional[str] = os.getenv("SMTP_PASSWORD")
+    smtp_from_email: Optional[str] = os.getenv("SMTP_FROM_EMAIL", "noreply@vira.ai")
+    smtp_from_name: Optional[str] = os.getenv("SMTP_FROM_NAME", "Vira AI")
+
     # External APIs
     elevenlabs_api_key: Optional[str] = os.getenv("ELEVENLABS_API_KEY")
     google_cloud_api_key: Optional[str] = os.getenv("GOOGLE_CLOUD_API_KEY")

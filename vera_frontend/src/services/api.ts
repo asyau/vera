@@ -822,6 +822,33 @@ class APIService {
     });
   }
 
+  async getTeam(teamId: string): Promise<any> {
+    return this.request<any>({
+      method: 'GET',
+      url: `/api/teams/${teamId}`,
+    });
+  }
+
+  async getTeamMembers(teamId: string): Promise<any[]> {
+    return this.request<any>({
+      method: 'GET',
+      url: `/api/teams/${teamId}`,
+    }).then(team => team.users || []);
+  }
+
+  async addTeamMember(teamId: string, userId: string): Promise<any> {
+    return this.assignUserToTeam(userId, teamId);
+  }
+
+  async removeTeamMember(teamId: string, userId: string): Promise<void> {
+    // Set user's team_id to null
+    return this.assignUserToTeam(userId, '');
+  }
+
+  async updateTeamMember(userId: string, updates: Partial<any>): Promise<any> {
+    return this.updateUser(userId, updates);
+  }
+
   async getProjects(): Promise<any[]> {
     return this.request<any[]>({
       method: 'GET',

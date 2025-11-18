@@ -2,7 +2,10 @@
 Notification Service for multi-channel notification delivery
 """
 import json
+import smtplib
 from datetime import datetime
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from enum import Enum
 from typing import Any, Dict, List, Optional
 from uuid import UUID, uuid4
@@ -353,16 +356,61 @@ class NotificationService(BaseService):
         content: str,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Send email notification"""
+        """Send email notification via SMTP"""
 
-        # TODO: Implement email service integration
-        # This would integrate with services like SendGrid, AWS SES, etc.
+        if not settings.smtp_username or not settings.smtp_password:
+            # Gracefully skip if email not configured
+            return {
+                "channel": "email",
+                "status": "skipped",
+                "reason": "Email not configured",
+                "recipient_email": recipient.email,
+            }
 
-        return {
-            "channel": "email",
-            "status": "sent",
-            "recipient_email": recipient.email,
-        }
+        try:
+            # Create message
+            msg = MIMEMultipart('alternative')
+            msg['From'] = f"{settings.smtp_from_name} <{settings.smtp_from_email}>"
+            msg['To'] = recipient.email
+            msg['Subject'] = title
+
+            # Create HTML and plain text versions
+            text_content = content
+            html_content = f"""
+            <html>
+              <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+                <div style="max-width: 600px; margin: 0 auto; padding: 20px;">
+                  <h2 style="color: #333;">{title}</h2>
+                  <p>{content.replace('\n', '<br>')}</p>
+                  <hr style="border: none; border-top: 1px solid #eee; margin: 20px 0;">
+                  <p style="color: #666; font-size: 12px;">
+                    This is an automated notification from Vira AI.
+                  </p>
+                </div>
+              </body>
+            </html>
+            """
+
+            # Attach both versions
+            part1 = MIMEText(text_content, 'plain')
+            part2 = MIMEText(html_content, 'html')
+            msg.attach(part1)
+            msg.attach(part2)
+
+            # Send email
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port) as server:
+                server.starttls()  # Enable TLS
+                server.login(settings.smtp_username, settings.smtp_password)
+                server.send_message(msg)
+
+            return {
+                "channel": "email",
+                "status": "sent",
+                "recipient_email": recipient.email,
+            }
+
+        except Exception as e:
+            raise ExternalServiceError(f"Failed to send email: {str(e)}")
 
     async def _send_slack_notification(
         self,

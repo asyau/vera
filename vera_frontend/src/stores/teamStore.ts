@@ -4,6 +4,7 @@
  */
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
+import { api } from '@/services/api';
 
 export interface TeamMember {
   id: string;
@@ -85,8 +86,8 @@ export const useTeamStore = create<TeamState>()(
         set({ isLoading: true, error: null });
 
         try {
-          // TODO: Implement API call
-          const teams: Team[] = [];
+          const response = await api.getTeams();
+          const teams = response.teams || response;
           set({ teams, isLoading: false });
         } catch (error: any) {
           set({
@@ -100,8 +101,7 @@ export const useTeamStore = create<TeamState>()(
         set({ isLoading: true, error: null });
 
         try {
-          // TODO: Implement API call
-          const team: Team | null = null;
+          const team = await api.getTeam(teamId);
           set({ currentTeam: team, isLoading: false });
         } catch (error: any) {
           set({
@@ -126,8 +126,7 @@ export const useTeamStore = create<TeamState>()(
         set({ isLoading: true, error: null });
 
         try {
-          // TODO: Implement API call
-          const teamMembers: TeamMember[] = [];
+          const teamMembers = await api.getTeamMembers(teamId);
           set({ teamMembers, isLoading: false });
         } catch (error: any) {
           set({
@@ -141,12 +140,12 @@ export const useTeamStore = create<TeamState>()(
         set({ isLoading: true, error: null });
 
         try {
-          // TODO: Implement API call
+          await api.addTeamMember(teamId, userId);
 
-          // Update local state
-          set(state => ({
-            isLoading: false
-          }));
+          // Refresh team members
+          await get().fetchTeamMembers(teamId);
+
+          set({ isLoading: false });
         } catch (error: any) {
           set({
             error: error.message || 'Failed to add team member',
@@ -159,7 +158,7 @@ export const useTeamStore = create<TeamState>()(
         set({ isLoading: true, error: null });
 
         try {
-          // TODO: Implement API call
+          await api.removeTeamMember(teamId, userId);
 
           // Update local state
           set(state => ({
@@ -178,7 +177,7 @@ export const useTeamStore = create<TeamState>()(
         set({ isLoading: true, error: null });
 
         try {
-          // TODO: Implement API call
+          await api.updateTeamMember(userId, { role });
 
           // Update local state
           set(state => ({
@@ -198,14 +197,15 @@ export const useTeamStore = create<TeamState>()(
       // Stats actions
       fetchTeamStats: async (teamId: string) => {
         try {
-          // TODO: Implement API call
+          const workload = await api.getTeamWorkload(teamId);
+
           const stats: TeamStats = {
-            total_members: 0,
-            active_members: 0,
-            total_tasks: 0,
-            completed_tasks: 0,
-            overdue_tasks: 0,
-            completion_rate: 0
+            total_members: workload.total_members || 0,
+            active_members: workload.total_members || 0, // Assuming all are active
+            total_tasks: workload.total_tasks || 0,
+            completed_tasks: workload.completed_tasks || 0,
+            overdue_tasks: workload.overdue_tasks || 0,
+            completion_rate: workload.avg_completion_rate || 0
           };
 
           set({ teamStats: stats });
