@@ -33,6 +33,7 @@ from app.routes import (
     team,
     user,
 )
+from app.routes.websocket import socket_app
 
 # Create FastAPI app with enhanced configuration
 app = FastAPI(
@@ -75,6 +76,9 @@ app.include_router(
 app.include_router(
     integrations.router, prefix="/api/integrations", tags=["Third-party Integrations"]
 )
+
+# Mount WebSocket (Socket.IO) application
+app.mount("/socket.io", socket_app)
 
 
 # Health and status endpoints

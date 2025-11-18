@@ -7,6 +7,7 @@ from functools import lru_cache
 from typing import Annotated, Any, Dict, Generator, Optional
 
 from fastapi import BackgroundTasks, Depends, Header, HTTPException
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.core.api_gateway import AuthenticationMiddleware
@@ -16,6 +17,24 @@ from app.models.sql_models import Company, User
 from app.repositories.user_repository import UserRepository
 from app.services.langgraph_integration import IntegratedAIService
 from app.services.langgraph_workflows import LangGraphWorkflowService
+
+
+# WebSocket Authentication Helper
+async def get_current_user_id_from_token(token: str) -> Optional[str]:
+    """
+    Extract user_id from JWT token
+    Used by WebSocket authentication
+    """
+    try:
+        payload = jwt.decode(
+            token, settings.jwt_secret_key, algorithms=[settings.jwt_algorithm]
+        )
+        user_id: str = payload.get("sub")
+        if user_id is None:
+            return None
+        return user_id
+    except JWTError:
+        return None
 
 
 # Database Session Dependency with proper cleanup

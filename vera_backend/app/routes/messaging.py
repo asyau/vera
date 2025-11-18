@@ -12,6 +12,8 @@ from app.core.api_gateway import AuthenticationMiddleware
 from app.core.exceptions import ViraException
 from app.database import get_db
 from app.services.communication_service import CommunicationService
+from app.routes.websocket import emit_to_conversation
+from app.services.websocket_service import connection_manager
 
 router = APIRouter()
 
@@ -249,6 +251,23 @@ async def send_message(
             content=request.content,
             message_type=request.type,
             metadata=request.metadata,
+        )
+
+        # Broadcast message via WebSocket
+        await emit_to_conversation(
+            str(conversation_id),
+            "new_message",
+            {
+                "message": {
+                    "id": str(message.id),
+                    "conversation_id": str(message.conversation_id),
+                    "sender_id": str(message.sender_id),
+                    "content": message.content,
+                    "message_type": message.type,
+                    "timestamp": message.timestamp.isoformat(),
+                    "is_read": message.is_read,
+                }
+            },
         )
 
         return MessageResponse.model_validate(message)
