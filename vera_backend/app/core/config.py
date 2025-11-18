@@ -54,11 +54,14 @@ class Settings(BaseSettings):
     slack_client_id: Optional[str] = os.getenv("SLACK_CLIENT_ID")
     slack_client_secret: Optional[str] = os.getenv("SLACK_CLIENT_SECRET")
     slack_signing_secret: Optional[str] = os.getenv("SLACK_SIGNING_SECRET")
+    slack_webhook_url: Optional[str] = os.getenv("SLACK_WEBHOOK_URL")
+    slack_bot_token: Optional[str] = os.getenv("SLACK_BOT_TOKEN")
 
     # Microsoft Integration
     microsoft_client_id: Optional[str] = os.getenv("MICROSOFT_CLIENT_ID")
     microsoft_client_secret: Optional[str] = os.getenv("MICROSOFT_CLIENT_SECRET")
     microsoft_tenant_id: Optional[str] = os.getenv("MICROSOFT_TENANT_ID")
+    teams_webhook_url: Optional[str] = os.getenv("TEAMS_WEBHOOK_URL")
 
     # Google Integration
     google_client_secrets_file: Optional[str] = os.getenv("GOOGLE_CLIENT_SECRETS_FILE")
@@ -73,6 +76,10 @@ class Settings(BaseSettings):
     # GitHub Integration
     github_client_id: Optional[str] = os.getenv("GITHUB_CLIENT_ID")
     github_client_secret: Optional[str] = os.getenv("GITHUB_CLIENT_SECRET")
+
+    # Push Notifications (Firebase Cloud Messaging)
+    fcm_server_key: Optional[str] = os.getenv("FCM_SERVER_KEY")
+    fcm_project_id: Optional[str] = os.getenv("FCM_PROJECT_ID")
 
     # File Storage
     max_file_size_mb: int = 50

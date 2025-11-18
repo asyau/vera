@@ -3,6 +3,7 @@ Notification Service for multi-channel notification delivery
 """
 import json
 import smtplib
+import requests
 from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -419,13 +420,71 @@ class NotificationService(BaseService):
         content: str,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Send Slack notification"""
+        """Send Slack notification via webhook or API"""
 
-        # TODO: Implement Slack API integration
-        if not settings.slack_api_token:
-            raise ExternalServiceError("Slack API token not configured")
+        # Check if Slack webhook or bot token is configured
+        if not settings.slack_webhook_url and not settings.slack_bot_token:
+            return {
+                "channel": "slack",
+                "status": "skipped",
+                "reason": "Slack not configured",
+            }
 
-        return {"channel": "slack", "status": "sent"}
+        try:
+            # Prepare Slack message block
+            slack_message = {
+                "text": title,
+                "blocks": [
+                    {
+                        "type": "header",
+                        "text": {
+                            "type": "plain_text",
+                            "text": title,
+                            "emoji": True
+                        }
+                    },
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": content
+                        }
+                    },
+                    {
+                        "type": "context",
+                        "elements": [
+                            {
+                                "type": "mrkdwn",
+                                "text": f"📧 Recipient: {recipient.name} ({recipient.email})"
+                            }
+                        ]
+                    }
+                ]
+            }
+
+            # Use webhook if available (simpler)
+            if settings.slack_webhook_url:
+                response = requests.post(
+                    settings.slack_webhook_url,
+                    json=slack_message,
+                    headers={"Content-Type": "application/json"},
+                    timeout=10
+                )
+                response.raise_for_status()
+                return {"channel": "slack", "status": "sent", "method": "webhook"}
+
+            # Otherwise use Bot API
+            elif settings.slack_bot_token:
+                # This would require knowing the user's Slack ID or channel
+                # For now, we'll skip actual implementation
+                return {
+                    "channel": "slack",
+                    "status": "skipped",
+                    "reason": "User Slack ID mapping not implemented"
+                }
+
+        except requests.RequestException as e:
+            raise ExternalServiceError(f"Failed to send Slack notification: {str(e)}")
 
     async def _send_teams_notification(
         self,
@@ -434,13 +493,55 @@ class NotificationService(BaseService):
         content: str,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Send Microsoft Teams notification"""
+        """Send Microsoft Teams notification via webhook"""
 
-        # TODO: Implement Teams API integration
-        if not settings.teams_api_token:
-            raise ExternalServiceError("Teams API token not configured")
+        if not settings.teams_webhook_url:
+            return {
+                "channel": "teams",
+                "status": "skipped",
+                "reason": "Teams webhook not configured",
+            }
 
-        return {"channel": "teams", "status": "sent"}
+        try:
+            # Microsoft Teams Adaptive Card format
+            teams_message = {
+                "@type": "MessageCard",
+                "@context": "https://schema.org/extensions",
+                "summary": title,
+                "themeColor": "0078D4",
+                "title": title,
+                "sections": [
+                    {
+                        "activityTitle": "Vira AI Notification",
+                        "activitySubtitle": f"For: {recipient.name}",
+                        "activityImage": "https://www.vira.ai/logo.png",
+                        "text": content,
+                        "facts": [
+                            {
+                                "name": "Recipient:",
+                                "value": recipient.email
+                            },
+                            {
+                                "name": "Sent:",
+                                "value": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+                            }
+                        ]
+                    }
+                ]
+            }
+
+            response = requests.post(
+                settings.teams_webhook_url,
+                json=teams_message,
+                headers={"Content-Type": "application/json"},
+                timeout=10
+            )
+            response.raise_for_status()
+
+            return {"channel": "teams", "status": "sent", "method": "webhook"}
+
+        except requests.RequestException as e:
+            raise ExternalServiceError(f"Failed to send Teams notification: {str(e)}")
 
     async def _send_push_notification(
         self,
@@ -449,12 +550,65 @@ class NotificationService(BaseService):
         content: str,
         metadata: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
-        """Send push notification"""
+        """Send push notification via Firebase Cloud Messaging"""
 
-        # TODO: Implement push notification service
-        # This would integrate with Firebase Cloud Messaging or similar
+        if not settings.fcm_server_key:
+            return {
+                "channel": "push",
+                "status": "skipped",
+                "reason": "FCM not configured",
+            }
 
-        return {"channel": "push", "status": "sent"}
+        try:
+            # FCM API endpoint
+            fcm_url = "https://fcm.googleapis.com/fcm/send"
+
+            # Get user's device tokens from preferences (if stored)
+            device_tokens = []
+            if recipient.preferences and "device_tokens" in recipient.preferences:
+                device_tokens = recipient.preferences.get("device_tokens", [])
+
+            if not device_tokens:
+                return {
+                    "channel": "push",
+                    "status": "skipped",
+                    "reason": "No device tokens registered for user",
+                }
+
+            # Prepare FCM message
+            fcm_message = {
+                "notification": {
+                    "title": title,
+                    "body": content,
+                    "icon": "vira_icon",
+                    "click_action": "FLUTTER_NOTIFICATION_CLICK"
+                },
+                "data": metadata or {},
+                "registration_ids": device_tokens
+            }
+
+            # Send to FCM
+            response = requests.post(
+                fcm_url,
+                json=fcm_message,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"key={settings.fcm_server_key}"
+                },
+                timeout=10
+            )
+            response.raise_for_status()
+
+            result = response.json()
+            return {
+                "channel": "push",
+                "status": "sent",
+                "success_count": result.get("success", 0),
+                "failure_count": result.get("failure", 0),
+            }
+
+        except requests.RequestException as e:
+            raise ExternalServiceError(f"Failed to send push notification: {str(e)}")
 
     def _validate_preferences(self, preferences: Dict[str, Any]) -> None:
         """Validate notification preferences structure"""

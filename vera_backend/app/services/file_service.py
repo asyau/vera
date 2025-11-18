@@ -14,6 +14,22 @@ from app.core.config import settings
 from app.core.exceptions import FileProcessingError, ValidationError
 from app.services.base import BaseService
 
+# Document processing imports
+try:
+    import PyPDF2
+except ImportError:
+    PyPDF2 = None
+
+try:
+    from docx import Document as DocxDocument
+except ImportError:
+    DocxDocument = None
+
+try:
+    from PIL import Image
+except ImportError:
+    Image = None
+
 
 class FileService(BaseService):
     """Service for file management and third-party storage integration"""
@@ -147,13 +163,21 @@ class FileService(BaseService):
         """Integrate with Google Drive"""
 
         try:
-            # TODO: Implement Google Drive API integration
-            # This would use the Google Drive API to:
-            # 1. Authenticate user
-            # 2. List files
-            # 3. Download/sync files
-            # 4. Set up webhooks for changes
+            # Google Drive API integration
+            # Requires: pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib
 
+            # For full implementation:
+            # 1. from googleapiclient.discovery import build
+            # 2. from google.oauth2.credentials import Credentials
+            # 3. Build Drive service with credentials
+            # 4. Call service.files().list() to get files
+            # 5. Store sync state in database
+
+            # Stub response for now
+            if not credentials:
+                raise ValidationError("Google Drive credentials required")
+
+            # Would normally call Google Drive API here
             return [
                 {
                     "id": "gdrive_file_1",
@@ -162,6 +186,7 @@ class FileService(BaseService):
                     "size": 2048,
                     "modified_time": datetime.utcnow().isoformat(),
                     "web_view_link": "https://drive.google.com/file/d/example",
+                    "integration_status": "configured_not_implemented",
                 }
             ]
 
@@ -174,9 +199,20 @@ class FileService(BaseService):
         """Integrate with Dropbox"""
 
         try:
-            # TODO: Implement Dropbox API integration
-            # Similar to Google Drive integration
+            # Dropbox API integration
+            # Requires: pip install dropbox
 
+            # For full implementation:
+            # 1. import dropbox
+            # 2. dbx = dropbox.Dropbox(access_token)
+            # 3. result = dbx.files_list_folder("")
+            # 4. Process entries and store in database
+            # 5. Set up webhooks for file changes
+
+            if not access_token:
+                raise ValidationError("Dropbox access token required")
+
+            # Would normally call Dropbox API here
             return [
                 {
                     "id": "dropbox_file_1",
@@ -185,6 +221,7 @@ class FileService(BaseService):
                     "size": 4096,
                     "modified_time": datetime.utcnow().isoformat(),
                     "sharing_info": {"shared": False},
+                    "integration_status": "configured_not_implemented",
                 }
             ]
 
@@ -201,12 +238,36 @@ class FileService(BaseService):
                 return file_path.read_text(encoding="utf-8")
 
             elif file_ext == ".pdf":
-                # TODO: Implement PDF text extraction using PyPDF2 or similar
-                return "PDF text content extraction not implemented"
+                # Extract text from PDF using PyPDF2
+                if PyPDF2 is None:
+                    return "PDF extraction not available (PyPDF2 not installed)"
+
+                try:
+                    with open(file_path, 'rb') as pdf_file:
+                        pdf_reader = PyPDF2.PdfReader(pdf_file)
+                        text_content = []
+                        for page in pdf_reader.pages:
+                            text_content.append(page.extract_text())
+                        return "\n".join(text_content)
+                except Exception as e:
+                    raise FileProcessingError(f"PDF extraction failed: {str(e)}")
 
             elif file_ext in [".doc", ".docx"]:
-                # TODO: Implement Word document text extraction
-                return "Word document text extraction not implemented"
+                # Extract text from Word document using python-docx
+                if file_ext == ".doc":
+                    return "Legacy .doc format not supported (use .docx)"
+
+                if DocxDocument is None:
+                    return "Word extraction not available (python-docx not installed)"
+
+                try:
+                    doc = DocxDocument(file_path)
+                    text_content = []
+                    for paragraph in doc.paragraphs:
+                        text_content.append(paragraph.text)
+                    return "\n".join(text_content)
+                except Exception as e:
+                    raise FileProcessingError(f"Word extraction failed: {str(e)}")
 
             elif file_ext == ".md":
                 return file_path.read_text(encoding="utf-8")
@@ -286,18 +347,81 @@ class FileService(BaseService):
                     }
 
             elif file_type == "image":
-                # TODO: Image processing (thumbnails, metadata extraction)
-                processing_result["processed_metadata"] = {
-                    "thumbnail_generated": False,
-                    "image_metadata": {},
-                }
+                # Image processing (thumbnails, metadata extraction)
+                if Image is None:
+                    processing_result["processed_metadata"] = {
+                        "thumbnail_generated": False,
+                        "image_metadata": {},
+                        "note": "PIL not installed",
+                    }
+                else:
+                    try:
+                        with Image.open(file_path) as img:
+                            # Get image metadata
+                            image_metadata = {
+                                "format": img.format,
+                                "mode": img.mode,
+                                "width": img.width,
+                                "height": img.height,
+                                "size_bytes": file_path.stat().st_size,
+                            }
+
+                            # Generate thumbnail
+                            thumbnail_path = file_path.parent / f"thumb_{file_path.name}"
+                            img.thumbnail((200, 200))
+                            img.save(thumbnail_path)
+
+                            processing_result["processed_metadata"] = {
+                                "thumbnail_generated": True,
+                                "thumbnail_path": str(thumbnail_path),
+                                "image_metadata": image_metadata,
+                            }
+                    except Exception as e:
+                        processing_result["processed_metadata"] = {
+                            "thumbnail_generated": False,
+                            "image_metadata": {},
+                            "error": str(e),
+                        }
 
             elif file_type == "audio":
-                # TODO: Audio processing (transcription, metadata)
-                processing_result["processed_metadata"] = {
-                    "duration": 0,
-                    "transcription_available": False,
-                }
+                # Audio processing (metadata extraction)
+                # For transcription, would integrate with:
+                # - OpenAI Whisper API
+                # - Google Speech-to-Text
+                # - Azure Speech Services
+
+                try:
+                    import wave
+                    import contextlib
+
+                    # Try to get audio metadata for WAV files
+                    if file_path.suffix.lower() == ".wav":
+                        with contextlib.closing(wave.open(str(file_path), 'r')) as f:
+                            frames = f.getnframes()
+                            rate = f.getframerate()
+                            duration = frames / float(rate)
+
+                            processing_result["processed_metadata"] = {
+                                "duration": duration,
+                                "sample_rate": rate,
+                                "channels": f.getnchannels(),
+                                "format": "WAV",
+                                "transcription_available": False,
+                                "note": "Transcription requires OpenAI/Google/Azure integration",
+                            }
+                    else:
+                        processing_result["processed_metadata"] = {
+                            "duration": 0,
+                            "format": file_path.suffix[1:].upper(),
+                            "transcription_available": False,
+                            "note": "Metadata extraction limited for non-WAV formats",
+                        }
+                except Exception as e:
+                    processing_result["processed_metadata"] = {
+                        "duration": 0,
+                        "transcription_available": False,
+                        "error": str(e),
+                    }
 
             return processing_result
 
