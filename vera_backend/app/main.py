@@ -29,6 +29,7 @@ from app.routes import (
     openai_service,
     org_hierarchy,
     project,
+    search,
     simple_auth,
     task,
     team,
@@ -82,6 +83,9 @@ app.include_router(
 app.include_router(
     org_hierarchy.router, prefix="/api/org", tags=["Organizational Hierarchy"]
 )
+
+# Smart Search
+app.include_router(search.router, prefix="/api/search", tags=["Smart Search"])
 
 # Mount WebSocket (Socket.IO) application
 app.mount("/socket.io", socket_app)
