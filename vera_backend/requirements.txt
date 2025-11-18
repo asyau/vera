@@ -38,3 +38,14 @@ msgraph-sdk
 azure-identity
 requests-oauthlib==2.0.0
 python-multipart==0.0.9
+requests>=2.31.0
+
+# Optional dependencies for file processing
+# Uncomment the ones you need:
+# PyPDF2>=3.0.0  # For PDF text extraction
+# python-docx>=1.0.0  # For Word document extraction
+# Pillow>=10.0.0  # For image processing and thumbnails
+# google-cloud-speech>=2.0.0  # For Google Cloud STT
+# google-cloud-texttospeech>=2.0.0  # For Google Cloud TTS
+# azure-cognitiveservices-speech>=1.31.0  # For Azure Speech Services
+# dropbox>=11.36.0  # For Dropbox integration

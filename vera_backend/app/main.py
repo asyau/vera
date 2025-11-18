@@ -34,6 +34,7 @@ from app.routes import (
     task,
     team,
     user,
+    voice,
 )
 from app.routes.websocket import socket_app
 
@@ -86,6 +87,9 @@ app.include_router(
 
 # Smart Search
 app.include_router(search.router, prefix="/api/search", tags=["Smart Search"])
+
+# Voice Interaction
+app.include_router(voice.router, prefix="/api/voice", tags=["Voice Interaction"])
 
 # Mount WebSocket (Socket.IO) application
 app.mount("/socket.io", socket_app)
