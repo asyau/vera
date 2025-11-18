@@ -92,6 +92,10 @@ class Settings(BaseSettings):
     api_gateway_host: str = os.getenv("API_GATEWAY_HOST", "localhost")
     api_gateway_port: int = int(os.getenv("API_GATEWAY_PORT", "8000"))
 
+    # CORS Configuration
+    cors_origins: Optional[str] = os.getenv("CORS_ORIGINS", None)  # Comma-separated list
+    cors_allow_all: bool = os.getenv("CORS_ALLOW_ALL", "false").lower() == "true"
+
     # Vector Database
     vector_dimensions: int = 1536  # OpenAI embeddings dimension
 

@@ -1,6 +1,7 @@
 """
 API Gateway implementation for microservices routing
 """
+import httpx
 import logging
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -32,22 +33,38 @@ class APIGateway:
     def setup_middleware(self):
         """Setup middleware for CORS, authentication, etc."""
 
-        # CORS middleware
+        # CORS middleware - Production-ready configuration
+        # Default development origins
+        default_origins = [
+            "http://localhost:5173",
+            "http://localhost:8080",
+            "https://localhost:8080",
+            "http://127.0.0.1:8080",
+            "https://127.0.0.1:8080",
+            "http://localhost:8081",
+            "https://localhost:8081",
+            "http://127.0.0.1:8081",
+            "https://127.0.0.1:8081",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000",
+        ]
+
+        # Use configured origins if provided, otherwise use defaults
+        if settings.cors_allow_all:
+            # Allow all origins (not recommended for production)
+            allowed_origins = ["*"]
+        elif settings.cors_origins:
+            # Use comma-separated origins from environment
+            allowed_origins = [origin.strip() for origin in settings.cors_origins.split(",")]
+        else:
+            # Use default development origins
+            allowed_origins = default_origins
+
+        logger.info(f"CORS allowed origins: {allowed_origins}")
+
         self.app.add_middleware(
             CORSMiddleware,
-            allow_origins=[
-                "http://localhost:5173",
-                "http://localhost:8080",
-                "https://localhost:8080",
-                "http://127.0.0.1:8080",
-                "https://127.0.0.1:8080",
-                "http://localhost:8081",
-                "https://localhost:8081",
-                "http://127.0.0.1:8081",
-                "https://127.0.0.1:8081",
-                "http://localhost:3000",
-                "http://127.0.0.1:3000",
-            ],
+            allow_origins=allowed_origins,
             allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
             allow_headers=["*"],
@@ -252,11 +269,15 @@ class ServiceRouter:
             if not service:
                 return False
 
-            # TODO: Implement actual health check HTTP request
-            # For now, return True
-            return True
+            # Perform actual health check HTTP request
+            health_url = f"http://{service['host']}:{service['port']}/health"
 
-        except Exception:
+            async with httpx.AsyncClient(timeout=5.0) as client:
+                response = await client.get(health_url)
+                return response.status_code == 200
+
+        except (httpx.RequestError, httpx.TimeoutException, Exception) as e:
+            logger.warning(f"Health check failed for {service_name}: {str(e)}")
             return False
 
     async def get_healthy_services(self) -> Dict[str, bool]:
