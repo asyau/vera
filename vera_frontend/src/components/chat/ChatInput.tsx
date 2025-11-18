@@ -50,12 +50,16 @@ interface ChatInputProps {
   onSendMessage: (message: string) => void;
   placeholder?: string;
   showAttachButton?: boolean;
+  onTypingStart?: () => void;
+  onTypingStop?: () => void;
 }
 
 const ChatInput: React.FC<ChatInputProps> = ({
   onSendMessage,
   placeholder = "Message Vira...",
-  showAttachButton = false
+  showAttachButton = false,
+  onTypingStart,
+  onTypingStop
 }) => {
   const [message, setMessage] = useState('');
   const [isRecording, setIsRecording] = useState(false);
@@ -171,6 +175,8 @@ const ChatInput: React.FC<ChatInputProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (message.trim()) {
+      // Stop typing indicator before sending
+      onTypingStop?.();
       onSendMessage(message);
       setMessage('');
     }
@@ -194,8 +200,17 @@ const ChatInput: React.FC<ChatInputProps> = ({
 
         <Textarea
           value={message}
-          onChange={(e) => setMessage(e.target.value)}
+          onChange={(e) => {
+            setMessage(e.target.value);
+            // Trigger typing indicator if callback is provided
+            if (onTypingStart && e.target.value) {
+              onTypingStart();
+            } else if (onTypingStop && !e.target.value) {
+              onTypingStop();
+            }
+          }}
           onKeyDown={handleKeyDown}
+          onBlur={() => onTypingStop?.()}
           placeholder={placeholder}
           className="min-h-10 resize-none border-0 p-2 shadow-none focus-visible:ring-0"
           autoComplete="off"

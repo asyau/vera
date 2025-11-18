@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import { AuthUser } from '@/types/auth';
 import { api } from '@/services/api';
+import { websocketService } from '@/services/websocketService';
 
 export interface AuthState {
   // State
@@ -43,6 +44,9 @@ export const useAuthStore = create<AuthState>()(
           // Store token in localStorage
           localStorage.setItem('authToken', token);
 
+          // Connect WebSocket
+          websocketService.connect(token);
+
           set({
             user,
             isAuthenticated: true,
@@ -74,6 +78,9 @@ export const useAuthStore = create<AuthState>()(
           // Store token in localStorage
           localStorage.setItem('authToken', token);
 
+          // Connect WebSocket
+          websocketService.connect(token);
+
           set({
             user,
             isAuthenticated: true,
@@ -92,6 +99,9 @@ export const useAuthStore = create<AuthState>()(
       },
 
       logout: () => {
+        // Disconnect WebSocket
+        websocketService.disconnect();
+
         localStorage.removeItem('authToken');
         set({
           user: null,
@@ -104,6 +114,7 @@ export const useAuthStore = create<AuthState>()(
         const token = localStorage.getItem('authToken');
         if (!token) {
           set({ isAuthenticated: false, user: null });
+          websocketService.disconnect();
           return;
         }
 
@@ -111,6 +122,12 @@ export const useAuthStore = create<AuthState>()(
 
         try {
           const user = await api.getCurrentUser();
+
+          // Connect WebSocket if user is authenticated
+          if (!websocketService.isConnected()) {
+            websocketService.connect(token);
+          }
+
           set({
             user,
             isAuthenticated: true,
@@ -120,6 +137,7 @@ export const useAuthStore = create<AuthState>()(
         } catch (error: any) {
           // Token is invalid, remove it
           localStorage.removeItem('authToken');
+          websocketService.disconnect();
           set({
             user: null,
             isAuthenticated: false,

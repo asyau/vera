@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Bell, Calendar, Menu, MessageSquare, Settings, User, Users, LogOut, Shield, Home, Link as LinkIcon } from 'lucide-react';
 import {
@@ -13,13 +13,40 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 import DailyBriefing from "@/components/briefing/DailyBriefing";
 import { useAuthStore } from '@/stores/authStore';
+import { websocketService, NotificationEvent } from '@/services/websocketService';
 
 const Navbar = () => {
   const [showBriefing, setShowBriefing] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
   const navigate = useNavigate();
   const { user, logout, hasRole } = useAuthStore();
+
+  // Listen for real-time notifications
+  useEffect(() => {
+    const handleNotification = (data: NotificationEvent) => {
+      console.log('Received notification:', data);
+
+      // Show toast notification
+      toast(data.notification.title || data.notification.type, {
+        description: data.notification.message,
+        duration: 5000,
+      });
+
+      // Update notification count
+      setNotificationCount((prev) => prev + 1);
+    };
+
+    // Subscribe to notifications
+    websocketService.onNotification(handleNotification);
+
+    // Cleanup listener on unmount
+    return () => {
+      websocketService.offNotification(handleNotification);
+    };
+  }, []);
 
   return (
     <header className="bg-white/80 backdrop-blur-md border-b border-gray-100/50 py-4 z-10 sticky top-0">
@@ -67,7 +94,13 @@ const Navbar = () => {
 
             <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-lg transition-all duration-200 relative">
               <Bell className="h-5 w-5" />
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              {notificationCount > 0 && (
+                <div className="absolute -top-1 -right-1 flex items-center justify-center">
+                  <Badge className="h-5 w-5 rounded-full p-0 text-xs bg-red-500 hover:bg-red-600">
+                    {notificationCount > 9 ? '9+' : notificationCount}
+                  </Badge>
+                </div>
+              )}
             </Button>
 
             <Tooltip>
