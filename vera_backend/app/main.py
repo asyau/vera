@@ -27,6 +27,7 @@ from app.routes import (
     langgraph_routes,
     messaging,
     openai_service,
+    org_hierarchy,
     project,
     simple_auth,
     task,
@@ -75,6 +76,11 @@ app.include_router(
 # Integration services
 app.include_router(
     integrations.router, prefix="/api/integrations", tags=["Third-party Integrations"]
+)
+
+# Organizational hierarchy
+app.include_router(
+    org_hierarchy.router, prefix="/api/org", tags=["Organizational Hierarchy"]
 )
 
 # Mount WebSocket (Socket.IO) application
