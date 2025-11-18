@@ -21,6 +21,18 @@ import {
   CreateConversationRequest,
   SendMessageRequest
 } from '@/types/chat';
+import {
+  SearchResponse,
+  SearchSuggestion,
+  SearchStats,
+  SearchFilters
+} from '@/types/search';
+import {
+  OrgGraphResponse,
+  UserWorkload,
+  TeamWorkload,
+  OrgGraphFilters
+} from '@/types/org';
 
 class APIService {
   private client: AxiosInstance;
@@ -209,6 +221,102 @@ class APIService {
     return this.request<TaskAnalytics>({
       method: 'GET',
       url: '/api/tasks/analytics/summary',
+    });
+  }
+
+  // Smart Search endpoints
+  async search(query: string, filters?: SearchFilters): Promise<SearchResponse> {
+    const params: any = { q: query };
+
+    if (filters?.types && filters.types.length > 0) {
+      params.types = filters.types.join(',');
+    }
+    if (filters?.search_type) {
+      params.search_type = filters.search_type;
+    }
+    if (filters?.limit) {
+      params.limit = filters.limit;
+    }
+    if (filters?.offset) {
+      params.offset = filters.offset;
+    }
+    if (filters?.min_relevance !== undefined) {
+      params.min_relevance = filters.min_relevance;
+    }
+
+    return this.request<SearchResponse>({
+      method: 'GET',
+      url: '/api/search',
+      params,
+    });
+  }
+
+  async getSearchSuggestions(query: string, limit: number = 5): Promise<SearchSuggestion[]> {
+    return this.request<SearchSuggestion[]>({
+      method: 'GET',
+      url: '/api/search/suggestions',
+      params: { q: query, limit },
+    });
+  }
+
+  async getRecentSearches(limit: number = 10): Promise<SearchSuggestion[]> {
+    return this.request<SearchSuggestion[]>({
+      method: 'GET',
+      url: '/api/search/recent',
+      params: { limit },
+    });
+  }
+
+  async getSearchStats(): Promise<SearchStats> {
+    return this.request<SearchStats>({
+      method: 'GET',
+      url: '/api/search/stats',
+    });
+  }
+
+  async submitSearchFeedback(query: string, resultId: string, helpful: boolean): Promise<void> {
+    return this.request<void>({
+      method: 'POST',
+      url: '/api/search/feedback',
+      data: { query, result_id: resultId, helpful },
+    });
+  }
+
+  async rebuildSearchIndex(): Promise<{ message: string; entities_indexed: number }> {
+    return this.request<{ message: string; entities_indexed: number }>({
+      method: 'POST',
+      url: '/api/search/index/rebuild',
+    });
+  }
+
+  // Organizational Hierarchy endpoints
+  async getOrgGraph(filters?: OrgGraphFilters): Promise<OrgGraphResponse> {
+    const params: any = {};
+
+    if (filters?.company_id) params.company_id = filters.company_id;
+    if (filters?.project_id) params.project_id = filters.project_id;
+    if (filters?.team_id) params.team_id = filters.team_id;
+    if (filters?.depth) params.depth = filters.depth;
+    if (filters?.include_users !== undefined) params.include_users = filters.include_users;
+
+    return this.request<OrgGraphResponse>({
+      method: 'GET',
+      url: '/api/org/graph',
+      params,
+    });
+  }
+
+  async getUserWorkload(userId: string): Promise<UserWorkload> {
+    return this.request<UserWorkload>({
+      method: 'GET',
+      url: `/api/org/workload/${userId}`,
+    });
+  }
+
+  async getTeamWorkload(teamId: string): Promise<TeamWorkload> {
+    return this.request<TeamWorkload>({
+      method: 'GET',
+      url: `/api/org/team-workload/${teamId}`,
     });
   }
 

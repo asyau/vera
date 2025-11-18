@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Calendar, Menu, MessageSquare, Settings, User, Users, LogOut, Shield, Home, Link as LinkIcon } from 'lucide-react';
+import { Bell, Calendar, Menu, MessageSquare, Settings, User, Users, LogOut, Shield, Home, Link as LinkIcon, CheckSquare } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +17,8 @@ import { toast } from "sonner";
 import DailyBriefing from "@/components/briefing/DailyBriefing";
 import { useAuthStore } from '@/stores/authStore';
 import { websocketService, NotificationEvent } from '@/services/websocketService';
+import SmartSearch from '@/components/search/SmartSearch';
+import { SearchResult } from '@/types/search';
 
 const Navbar = () => {
   const [showBriefing, setShowBriefing] = useState(false);
@@ -48,10 +50,33 @@ const Navbar = () => {
     };
   }, []);
 
+  // Handle search result selection
+  const handleSearchResultClick = (result: SearchResult) => {
+    // Navigate based on entity type
+    switch (result.type) {
+      case 'task':
+        navigate('/tasks');
+        toast.success(`Opening task: ${result.title}`);
+        break;
+      case 'user':
+        navigate(`/teams`);
+        toast.success(`Opening user profile: ${result.title}`);
+        break;
+      case 'conversation':
+        navigate('/messaging');
+        toast.success(`Opening conversation: ${result.title}`);
+        break;
+      case 'message':
+        navigate('/messaging');
+        toast.success(`Opening message in conversation`);
+        break;
+    }
+  };
+
   return (
     <header className="bg-white/80 backdrop-blur-md border-b border-gray-100/50 py-4 z-10 sticky top-0">
-      <div className="container px-6 mx-auto flex justify-between items-center">
-        <div className="flex items-center space-x-4">
+      <div className="container px-6 mx-auto flex justify-between items-center gap-4">
+        <div className="flex items-center space-x-4 shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -76,7 +101,15 @@ const Navbar = () => {
           </Tooltip>
         </div>
 
-        <div className="flex items-center space-x-3">
+        {/* Smart Search - Center of navbar */}
+        <div className="flex-1 max-w-2xl hidden md:block">
+          <SmartSearch
+            onResultClick={handleSearchResultClick}
+            placeholder="Search tasks, users, conversations..."
+          />
+        </div>
+
+        <div className="flex items-center space-x-3 shrink-0">
           <Button
             onClick={() => setShowBriefing(true)}
             variant="outline"

@@ -6,6 +6,7 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { Message, Conversation, ChatSession } from '@/types/chat';
 import { api } from '@/services/api';
+import { websocketService, NewMessageEvent } from '@/services/websocketService';
 
 export interface ChatState {
   // State
@@ -113,11 +114,26 @@ export const useChatStore = create<ChatState>()(
       },
 
       setCurrentConversation: (conversation: Conversation | null) => {
+        const { currentConversation } = get();
+
+        // Leave previous conversation room
+        if (currentConversation && websocketService.isConnected()) {
+          websocketService.leaveConversation(currentConversation.id);
+        }
+
         set({ currentConversation: conversation });
 
-        // Fetch messages when conversation changes
+        // Join new conversation room and fetch messages
         if (conversation) {
           get().fetchMessages(conversation.id);
+
+          // Join WebSocket room if connected
+          if (websocketService.isConnected()) {
+            websocketService.joinConversation(conversation.id)
+              .catch((error) => {
+                console.error('Failed to join conversation room:', error);
+              });
+          }
         } else {
           set({ messages: [] });
         }
@@ -291,12 +307,67 @@ export const useChatStore = create<ChatState>()(
 
       // Real-time actions
       connectWebSocket: () => {
-        // TODO: Implement WebSocket connection
-        set({ isConnected: true, connectionError: null });
+        if (!websocketService.isConnected()) {
+          set({ connectionError: 'WebSocket not connected' });
+          return;
+        }
+
+        try {
+          // Set up event listeners for real-time messages
+          websocketService.onNewMessage((data: NewMessageEvent) => {
+            const { currentConversation, messages } = get();
+
+            // Only add message if it's for the current conversation
+            if (currentConversation && data.message.conversation_id === currentConversation.id) {
+              // Check if message already exists (avoid duplicates)
+              const messageExists = messages.some(msg => msg.id === data.message.id);
+
+              if (!messageExists) {
+                set(state => ({
+                  messages: [...state.messages, data.message]
+                }));
+              }
+            }
+
+            // Update conversation's last message in the list
+            set(state => ({
+              conversations: state.conversations.map(conv =>
+                conv.id === data.message.conversation_id
+                  ? { ...conv, last_message: data.message }
+                  : conv
+              )
+            }));
+          });
+
+          set({ isConnected: true, connectionError: null });
+
+          // Join current conversation if one is active
+          const { currentConversation } = get();
+          if (currentConversation) {
+            websocketService.joinConversation(currentConversation.id)
+              .catch((error) => {
+                console.error('Failed to join conversation:', error);
+              });
+          }
+        } catch (error: any) {
+          set({
+            connectionError: error.message || 'Failed to set up WebSocket listeners',
+            isConnected: false
+          });
+        }
       },
 
       disconnectWebSocket: () => {
-        // TODO: Implement WebSocket disconnection
+        const { currentConversation } = get();
+
+        // Leave current conversation if active
+        if (currentConversation) {
+          websocketService.leaveConversation(currentConversation.id);
+        }
+
+        // Clean up event listeners
+        websocketService.offNewMessage(() => {});
+
         set({ isConnected: false });
       },
 

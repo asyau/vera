@@ -16,6 +16,7 @@ import Settings from "./pages/Settings";
 import Calendar from "./pages/Calendar";
 import Integrations from "./pages/Integrations";
 import IntegrationCallback from "./pages/IntegrationCallback";
+import OrgHierarchy from "./pages/OrgHierarchy";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Unauthorized from "./pages/Unauthorized";
@@ -96,6 +97,11 @@ const App = () => (
               <Route path="/integrations" element={
                 <ProtectedRoute>
                   <Integrations />
+                </ProtectedRoute>
+              } />
+              <Route path="/org-hierarchy" element={
+                <ProtectedRoute>
+                  <OrgHierarchy />
                 </ProtectedRoute>
               } />
 
