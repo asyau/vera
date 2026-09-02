@@ -1,7 +1,7 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Bell, Calendar, Menu, MessageSquare, Settings, User, Users, LogOut, Shield, Home } from 'lucide-react';
+import { Bell, Calendar, Menu, MessageSquare, Settings, User, Users, LogOut, Shield, Home, Link as LinkIcon, CheckSquare } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,18 +13,70 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { toast } from "sonner";
 import DailyBriefing from "@/components/briefing/DailyBriefing";
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuthStore } from '@/stores/authStore';
+import { websocketService, NotificationEvent } from '@/services/websocketService';
+import SmartSearch from '@/components/search/SmartSearch';
+import { SearchResult } from '@/types/search';
 
 const Navbar = () => {
   const [showBriefing, setShowBriefing] = useState(false);
+  const [notificationCount, setNotificationCount] = useState(0);
   const navigate = useNavigate();
-  const { user, logout, hasRole } = useAuth();
-  
+  const { user, logout, hasRole } = useAuthStore();
+
+  // Listen for real-time notifications
+  useEffect(() => {
+    const handleNotification = (data: NotificationEvent) => {
+      console.log('Received notification:', data);
+
+      // Show toast notification
+      toast(data.notification.title || data.notification.type, {
+        description: data.notification.message,
+        duration: 5000,
+      });
+
+      // Update notification count
+      setNotificationCount((prev) => prev + 1);
+    };
+
+    // Subscribe to notifications
+    websocketService.onNotification(handleNotification);
+
+    // Cleanup listener on unmount
+    return () => {
+      websocketService.offNotification(handleNotification);
+    };
+  }, []);
+
+  // Handle search result selection
+  const handleSearchResultClick = (result: SearchResult) => {
+    // Navigate based on entity type
+    switch (result.type) {
+      case 'task':
+        navigate('/tasks');
+        toast.success(`Opening task: ${result.title}`);
+        break;
+      case 'user':
+        navigate(`/teams`);
+        toast.success(`Opening user profile: ${result.title}`);
+        break;
+      case 'conversation':
+        navigate('/messaging');
+        toast.success(`Opening conversation: ${result.title}`);
+        break;
+      case 'message':
+        navigate('/messaging');
+        toast.success(`Opening message in conversation`);
+        break;
+    }
+  };
+
   return (
     <header className="bg-white/80 backdrop-blur-md border-b border-gray-100/50 py-4 z-10 sticky top-0">
-      <div className="container px-6 mx-auto flex justify-between items-center">
-        <div className="flex items-center space-x-4">
+      <div className="container px-6 mx-auto flex justify-between items-center gap-4">
+        <div className="flex items-center space-x-4 shrink-0">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -48,33 +100,85 @@ const Navbar = () => {
             </TooltipContent>
           </Tooltip>
         </div>
-        
-        <div className="flex items-center space-x-3">
-          <Button 
-            onClick={() => setShowBriefing(true)} 
-            variant="outline" 
-            size="sm" 
+
+        {/* Smart Search - Center of navbar */}
+        <div className="flex-1 max-w-2xl hidden md:block">
+          <SmartSearch
+            onResultClick={handleSearchResultClick}
+            placeholder="Search tasks, users, conversations..."
+          />
+        </div>
+
+        <div className="flex items-center space-x-3 shrink-0">
+          <Button
+            onClick={() => setShowBriefing(true)}
+            variant="outline"
+            size="sm"
             className="hidden md:flex bg-white/50 backdrop-blur-sm border-gray-200 hover:bg-white hover:shadow-md transition-all duration-200"
           >
             <Calendar className="mr-2 h-4 w-4" />
             Daily Briefing
           </Button>
-          
+
           <div className="flex items-center space-x-1">
             <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-lg transition-all duration-200">
               <MessageSquare className="h-5 w-5" />
             </Button>
-            
+
             <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-lg transition-all duration-200 relative">
               <Bell className="h-5 w-5" />
-              <div className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+              {notificationCount > 0 && (
+                <div className="absolute -top-1 -right-1 flex items-center justify-center">
+                  <Badge className="h-5 w-5 rounded-full p-0 text-xs bg-red-500 hover:bg-red-600">
+                    {notificationCount > 9 ? '9+' : notificationCount}
+                  </Badge>
+                </div>
+              )}
             </Button>
-            
-            <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-lg transition-all duration-200">
-              <Settings className="h-5 w-5" />
-            </Button>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate('/calendar')}
+                  className="text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-lg transition-all duration-200"
+                >
+                  <Calendar className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Calendar</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate('/integrations')}
+                  className="text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-lg transition-all duration-200"
+                >
+                  <LinkIcon className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Integrations</TooltipContent>
+            </Tooltip>
+
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => navigate('/settings')}
+                  className="text-gray-500 hover:text-gray-700 hover:bg-gray-100/50 rounded-lg transition-all duration-200"
+                >
+                  <Settings className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>Settings</TooltipContent>
+            </Tooltip>
           </div>
-          
+
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" className="relative h-10 w-10 rounded-full hover:bg-gray-100/50 transition-all duration-200">
@@ -102,16 +206,31 @@ const Navbar = () => {
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => navigate('/profile')} 
+              <DropdownMenuItem
+                onClick={() => navigate('/profile')}
                 className="hover:bg-gray-50 transition-colors duration-150"
               >
                 Profile
               </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => navigate('/settings')} 
+              <DropdownMenuItem
+                onClick={() => navigate('/calendar')}
                 className="hover:bg-gray-50 transition-colors duration-150"
               >
+                <Calendar className="h-4 w-4 mr-2" />
+                Calendar
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => navigate('/integrations')}
+                className="hover:bg-gray-50 transition-colors duration-150"
+              >
+                <LinkIcon className="h-4 w-4 mr-2" />
+                Integrations
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() => navigate('/settings')}
+                className="hover:bg-gray-50 transition-colors duration-150"
+              >
+                <Settings className="h-4 w-4 mr-2" />
                 Settings
               </DropdownMenuItem>
               <DropdownMenuSeparator />
@@ -123,10 +242,10 @@ const Navbar = () => {
           </DropdownMenu>
         </div>
       </div>
-      
-      <DailyBriefing 
-        open={showBriefing} 
-        onClose={() => setShowBriefing(false)} 
+
+      <DailyBriefing
+        open={showBriefing}
+        onClose={() => setShowBriefing(false)}
       />
     </header>
   );

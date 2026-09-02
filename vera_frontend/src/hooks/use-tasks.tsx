@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Task } from '@/lib/api';
-import { api } from '@/lib/api';
+import { api } from '@/services/api';
+import { Task } from '@/types/task';
 
 export function useTasks() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -15,7 +15,20 @@ export function useTasks() {
         setTasks(fetchedTasks);
         setError(null);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch tasks');
+        console.error('Tasks fetch error:', err);
+
+        // More specific error handling
+        if (err instanceof Error) {
+          if (err.message.includes('403') || err.message.includes('Not authenticated')) {
+            setError('Authentication required. Please log in again.');
+          } else if (err.message.includes('401')) {
+            setError('Session expired. Please log in again.');
+          } else {
+            setError(err.message);
+          }
+        } else {
+          setError('Failed to fetch tasks');
+        }
       } finally {
         setLoading(false);
       }
@@ -80,9 +93,23 @@ export function useTasks() {
     });
   };
 
-  // Get tasks by assignee
-  const getTasksByAssignee = (assignee: string) => {
-    return tasks.filter((task) => task.assignee?.name === assignee);
+  // Get tasks by assignee ID
+  const getTasksByAssignee = (assigneeId: string) => {
+    return tasks.filter((task) => task.assigned_to === assigneeId);
+  };
+
+  // Refetch tasks
+  const refetch = async () => {
+    setLoading(true);
+    try {
+      const fetchedTasks = await api.getTasks();
+      setTasks(fetchedTasks);
+      setError(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to fetch tasks');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return {
@@ -96,5 +123,6 @@ export function useTasks() {
     getTasksDueToday,
     getTasksDueThisWeek,
     getTasksByAssignee,
+    refetch,
   };
 }

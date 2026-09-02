@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  MessageSquare, 
-  CheckSquare, 
-  Users, 
+import {
+  ChevronLeft,
+  ChevronRight,
+  MessageSquare,
+  CheckSquare,
+  Users,
   Plus,
   History,
   Shield
@@ -86,7 +86,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
         <>
           {/* New Chat Button */}
           <div className="p-4 border-b border-gray-200">
-            <Button 
+            <Button
               onClick={onNewSession}
               className="w-full bg-vira-primary hover:bg-vira-primary/90"
               size="sm"
@@ -98,16 +98,16 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
 
           {/* Accordion Navigation */}
           <div className="flex-1 overflow-hidden">
-            <Accordion 
-              type="single" 
-              collapsible 
+            <Accordion
+              type="single"
+              collapsible
               value={activeAccordion}
               onValueChange={setActiveAccordion}
               className="h-full"
             >
               {/* Chat Section */}
               <AccordionItem value="chat" className="border-none">
-                <AccordionTrigger 
+                <AccordionTrigger
                   className={`px-3 py-2 hover:bg-gray-50 ${
                     viewMode === 'chat' ? 'bg-blue-50 text-blue-700' : ''
                   }`}
@@ -126,7 +126,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
                         <History className="h-4 w-4 text-gray-400" />
                       </div>
                     </div>
-                    
+
                     <ScrollArea className="h-64">
                       {chatSessions.length > 0 ? (
                         <div className="space-y-1 px-2">
@@ -135,8 +135,8 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
                               key={session.id}
                               onClick={() => onSessionSelect(session.id)}
                               className={`w-full px-4 py-3 text-left transition-all duration-200 hover:bg-gray-50 rounded-lg ${
-                                session.isActive 
-                                  ? 'bg-blue-50 border-l-4 border-blue-500' 
+                                session.isActive
+                                  ? 'bg-blue-50 border-l-4 border-blue-500'
                                   : 'hover:border-l-4 hover:border-gray-200'
                               }`}
                             >
@@ -174,7 +174,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
 
               {/* Tasks Section */}
               <AccordionItem value="tasks" className="border-none">
-                <AccordionTrigger 
+                <AccordionTrigger
                   className={`px-3 py-2 hover:bg-gray-50 ${
                     viewMode === 'tasks' ? 'bg-blue-50 text-blue-700' : ''
                   }`}
@@ -196,7 +196,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
 
               {/* Messaging Section */}
               <AccordionItem value="messaging" className="border-none">
-                <AccordionTrigger 
+                <AccordionTrigger
                   className={`px-3 py-2 hover:bg-gray-50 ${
                     viewMode === 'messaging' ? 'bg-blue-50 text-blue-700' : ''
                   }`}
@@ -219,7 +219,7 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
               {/* Team Dashboard Section - Only for supervisors */}
               {isSupervisor && (
                 <AccordionItem value="team-dashboard" className="border-none">
-                  <AccordionTrigger 
+                  <AccordionTrigger
                     className={`px-3 py-2 hover:bg-gray-50 ${
                       viewMode === 'team-dashboard' ? 'bg-blue-50 text-blue-700' : ''
                     }`}
@@ -309,4 +309,4 @@ const CollapsibleSidebar: React.FC<CollapsibleSidebarProps> = ({
   );
 };
 
-export default CollapsibleSidebar; 
+export default CollapsibleSidebar;

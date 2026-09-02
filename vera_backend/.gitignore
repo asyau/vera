@@ -35,5 +35,28 @@ env/
 *.swo
 
 # Logs
-*.log 
+*.log
 .DS_Store
+
+# Secrets and environment files
+.env*
+.env.*
+.envrc
+.secrets*
+secrets/
+
+# Private keys and credentials
+*.pem
+*.key
+*.p12
+*.pfx
+*.der
+*.crt
+*.cer
+*.jks
+*.keystore
+id_rsa
+id_dsa
+.ssh/
+*serviceAccount*.json
+*credentials*.json

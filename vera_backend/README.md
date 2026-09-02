@@ -62,4 +62,4 @@ app/
 └── services/
     ├── __init__.py
     └── openai_service.py
-``` 
+```

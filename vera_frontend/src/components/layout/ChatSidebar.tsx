@@ -32,7 +32,7 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
       <div className="p-4 flex-shrink-0">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button 
+            <Button
               onClick={onNewSession}
               className="w-full bg-vira-primary hover:bg-vira-primary/90 mb-4"
             >
@@ -42,25 +42,25 @@ const ChatSidebar: React.FC<ChatSidebarProps> = ({
           </TooltipTrigger>
           <TooltipContent>Start a new conversation</TooltipContent>
         </Tooltip>
-        
+
         <div className="relative mb-4">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
-          <Input 
-            placeholder="Search chats..." 
+          <Input
+            placeholder="Search chats..."
             className="pl-8 bg-gray-50 border-gray-200"
           />
         </div>
       </div>
-      
+
       <Separator className="flex-shrink-0" />
-      
+
       <ScrollArea className="flex-1 overflow-y-auto">
         <div className="py-2">
           <div className="px-4 py-2 flex items-center">
             <History className="h-4 w-4 mr-2 text-gray-500" />
             <span className="text-xs font-medium text-gray-500">Recent Chats</span>
           </div>
-          
+
           {sessions.length > 0 ? (
             sessions.map((session) => (
               <button
